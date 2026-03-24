@@ -90,28 +90,78 @@
       animation: rimGlow 6s linear infinite;
     }
 
-    /* ── Cinematic: Logo glass orb ─────────────────────────── */
+    /* ── Cinematic: Logo glass orb / planet ───────────────── */
     .logo-core {
-      width: 130px; height: 130px; border-radius: 50%;
+      width: 180px; height: 180px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
-      backdrop-filter: blur(20px);
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      box-shadow: inset 0 0 40px rgba(255,255,255,0.06), 0 0 60px rgba(255,200,80,0.15);
+      backdrop-filter: blur(24px);
+      background:
+        radial-gradient(circle at 32% 28%, rgba(255,255,255,0.13) 0%, transparent 52%),
+        rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow:
+        inset 0 0 60px rgba(255,255,255,0.07),
+        inset 0 -20px 40px rgba(0,0,0,0.30),
+        0 0 70px rgba(255,200,80,0.18),
+        0 0 140px rgba(255,200,80,0.07);
       will-change: transform, box-shadow;
       margin-bottom: 10px;
       position: relative;
+      overflow: visible;
+      transform-style: preserve-3d;
     }
+    /* Specular depth layer */
     .logo-core::before {
       content: ''; position: absolute; inset: 0; border-radius: 50%;
-      backdrop-filter: blur(30px); opacity: 0.6; pointer-events: none;
+      background: radial-gradient(circle at 70% 72%, rgba(255,200,80,0.10) 0%, transparent 50%);
+      pointer-events: none; z-index: 2;
+    }
+    /* Rim light */
+    .logo-core::after {
+      content: ''; position: absolute; inset: -1px; border-radius: 50%;
+      background: conic-gradient(
+        from 200deg,
+        transparent 0deg,
+        rgba(255,200,80,0.22) 60deg,
+        transparent 120deg,
+        rgba(255,255,255,0.08) 200deg,
+        transparent 260deg
+      );
+      pointer-events: none; z-index: 0;
+      animation: rimSpin 14s linear infinite;
+    }
+    @keyframes rimSpin {
+      to { transform: rotate(360deg); }
     }
     .logo-img {
-      width: 65%; pointer-events: none; position: relative; z-index: 1;
-      mix-blend-mode: screen; opacity: 0.9;
-      filter: brightness(1.2) contrast(1.1) drop-shadow(0 0 10px rgba(255,255,255,0.15));
+      width: 58%; pointer-events: none; position: relative; z-index: 3;
+      mix-blend-mode: screen; opacity: 0.92;
+      filter: brightness(1.25) contrast(1.1) drop-shadow(0 0 14px rgba(255,255,255,0.18));
     }
+    /* ── Planet rings ───────────────────────────────────────── */
+    .planet-ring {
+      position: absolute;
+      top: 50%; left: 50%;
+      border-radius: 50%;
+      pointer-events: none;
+      border: 1px solid rgba(255,200,80,0.22);
+      mix-blend-mode: screen;
+      box-shadow: 0 0 18px rgba(201,162,39,0.14), inset 0 0 8px rgba(255,255,255,0.04);
+      will-change: transform;
+      /* conic gradient for energy-flow effect */
+      background: conic-gradient(
+        from 0deg,
+        transparent 0%,
+        rgba(201,162,39,0.18) 25%,
+        transparent 50%,
+        rgba(255,255,255,0.06) 75%,
+        transparent 100%
+      );
+    }
+    .planet-ring-1 { width: 260px; height: 260px; opacity: 0.60; }
+    .planet-ring-2 { width: 310px; height: 310px; opacity: 0.38; }
+    .planet-ring-3 { width: 370px; height: 370px; opacity: 0.22; }
 
     /* ── Cinematic: Vignette + depth fog ──────────────────── */
     #vignette {
@@ -1289,6 +1339,7 @@ var cardGlows = CARDS.map(function(card) {
 // Build card DOM + collect canvas refs
 var cardCanvases = [];
 var logoCoreEl   = null;  // LABEL card glass orb — updated each frame
+var planetRingEls = [];   // LABEL card orbital rings — animated each frame
 var cardEls = CARDS.map(function(card, idx) {
   var wrap = document.createElement("div");
   wrap.style.cssText = [
@@ -1452,7 +1503,7 @@ var cardEls = CARDS.map(function(card, idx) {
     content.appendChild(topText);
   }
 
-  // LABEL card — logo glass orb (energy-reactive, orbiting)
+  // LABEL card — logo glass orb (energy-reactive, orbiting) + planet rings
   if (idx === 5) {
     logoCoreEl = document.createElement("div");
     logoCoreEl.className = "logo-core";
@@ -1460,6 +1511,14 @@ var cardEls = CARDS.map(function(card, idx) {
     cardLogo.src = "carousel/Frames/Story/Original Label logo.png";
     cardLogo.className = "logo-img";
     logoCoreEl.appendChild(cardLogo);
+    // Orbital rings — 3 tilted ellipses orbiting the planet
+    planetRingEls = [];
+    [1,2,3].forEach(function(n) {
+      var ring = document.createElement("div");
+      ring.className = "planet-ring planet-ring-" + n;
+      logoCoreEl.appendChild(ring);
+      planetRingEls.push(ring);
+    });
     content.appendChild(logoCoreEl);
   }
 
@@ -1598,21 +1657,52 @@ function updateCards() {
   }
 }
 
-// ─── Cinematic: energy-reactive logo orb ───────────────────────────────────
+// ─── Cinematic: energy-reactive logo planet + rings ─────────────────────────
 function updateLogo(t) {
   if (!logoCoreEl) return;
-  var e   = energyLevel;
-  var sc  = 1 + (e - 0.6) * 0.06;
-  var gR  = ((e - 0.6) * 44 + 28).toFixed(1);
-  var gR2 = ((e - 0.6) * 95 + 55).toFixed(0);
+  var e = energyLevel;
+
+  // Breathing — slow sine pulse layered on top of energy scale
+  var breath = 1 + Math.sin(t * 0.85) * 0.022;
+  var sc     = breath * (1 + (e - 0.6) * 0.06);
+
+  // Subtle float drift
   var ox  = (Math.sin(t * 0.62) * 3.8).toFixed(2);
   var oy  = (Math.cos(t * 0.62) * 3.8).toFixed(2);
+
+  // Glow radii — audio-reactive
+  var gR  = ((e - 0.6) * 55 + 38).toFixed(1);
+  var gR2 = ((e - 0.6) * 110 + 75).toFixed(0);
+  var gR3 = ((e - 0.6) * 160 + 120).toFixed(0);
+
+  // Mouse tilt — subtle, reads mouseNX/mouseNY [-1,1]
+  var tiltX = (mouseNY * -5).toFixed(2);
+  var tiltY = (mouseNX *  5).toFixed(2);
+
   logoCoreEl.style.transform =
-    "translate(" + ox + "px," + oy + "px) scale(" + sc.toFixed(4) + ")";
+    "translate(" + ox + "px," + oy + "px)" +
+    " rotateX(" + tiltX + "deg) rotateY(" + tiltY + "deg)" +
+    " scale(" + sc.toFixed(4) + ")";
   logoCoreEl.style.boxShadow =
-    "inset 0 0 40px rgba(255,255,255,0.06)," +
-    "0 0 " + gR + "px rgba(255,200,80,0.28)," +
-    "0 0 " + gR2 + "px rgba(255,200,80,0.08)";
+    "inset 0 0 60px rgba(255,255,255,0.07)," +
+    "inset 0 -20px 40px rgba(0,0,0,0.30)," +
+    "0 0 " + gR  + "px rgba(255,200,80,0.32)," +
+    "0 0 " + gR2 + "px rgba(255,200,80,0.12)," +
+    "0 0 " + gR3 + "px rgba(255,200,80,0.04)";
+
+  // ── Ring animation ──
+  if (planetRingEls.length) {
+    // Bass-driven scale — rings expand on energy spikes
+    var bass = Math.max(0, e - 0.55);
+    var ringSpeeds = [0.18, 0.11, 0.07]; // deg/sec
+    for (var ri = 0; ri < planetRingEls.length; ri++) {
+      var ringRot = t * ringSpeeds[ri] * 57.2958; // rad→deg
+      var ringScale = 1 + bass * (0.06 + ri * 0.035);
+      planetRingEls[ri].style.transform =
+        "translate(-50%,-50%) rotateX(72deg) rotateZ(" + ringRot.toFixed(2) + "deg)" +
+        " scale(" + ringScale.toFixed(4) + ")";
+    }
+  }
 }
 
 // ─── Main loop ─────────────────────────────────────────────────────────────
