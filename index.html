@@ -1552,7 +1552,7 @@ var cardEls = CARDS.map(function(card, idx) {
       var el;
       if (slide.type === "video") {
         el = document.createElement("video");
-        el.src = slide.src; el.autoplay = true; el.muted = true; el.loop = true; el.playsInline = true;
+        el.src = slide.src; el.muted = true; el.loop = true; el.playsInline = true; el.preload = "auto";
       } else {
         el = document.createElement("img");
         el.src = slide.src;
@@ -1568,12 +1568,13 @@ var cardEls = CARDS.map(function(card, idx) {
       return el;
     });
     var ssCur = 0;
-    // Preload all videos immediately so they're ready when their slide comes up
+    // Buffer all videos so they're ready when their slide activates
     ssEls.forEach(function(el) {
-      if (el.tagName === "VIDEO") { el.load(); el.play().catch(function(){}); }
+      if (el.tagName === "VIDEO") { el.load(); }
     });
     setInterval(function() {
       ssEls[ssCur].style.opacity = "0";
+      if (ssEls[ssCur].tagName === "VIDEO") { ssEls[ssCur].pause(); }
       ssCur = (ssCur + 1) % ssEls.length;
       var next = ssEls[ssCur];
       if (next.tagName === "VIDEO") { next.currentTime = 0; next.play().catch(function(){}); }
@@ -1585,10 +1586,10 @@ var cardEls = CARDS.map(function(card, idx) {
   if (idx === 3) {
     var vid = document.createElement("video");
     vid.src = "carousel/Frames/Contact/Whisk_gdm2qdojljm2ydz20yyzktytqtojrtlhj2nz0co.mp4";
-    vid.autoplay    = true;
     vid.loop        = true;
     vid.muted       = true;
     vid.playsInline = true;
+    vid.preload     = "auto";
     vid.style.cssText = [
       "position:absolute","inset:0",
       "width:100%","height:100%",
@@ -2063,9 +2064,15 @@ function animate(ts) {
       }
       // Apply glass filter to front card canvas only
       if (cardCanvases[ka]) cardCanvases[ka].style.filter = "url(#glass-distortion)";
+      // Play any video on the front card
+      var fvid = cardEls[ka].querySelector("video");
+      if (fvid && fvid.paused) { fvid.play().catch(function(){}); }
     } else {
       cardEls[ka].classList.remove("card-active");
       if (cardCanvases[ka]) cardCanvases[ka].style.filter = "";
+      // Pause videos on non-front cards to save resources
+      var bvid = cardEls[ka].querySelector("video");
+      if (bvid && !bvid.paused) { bvid.pause(); }
     }
   }
 
