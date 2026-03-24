@@ -163,6 +163,19 @@
     .planet-ring-2 { width: 310px; height: 310px; opacity: 0.38; }
     .planet-ring-3 { width: 370px; height: 370px; opacity: 0.22; }
 
+    /* ── Cursor force field ────────────────────────────────── */
+    #cursor-glow {
+      position: fixed;
+      width: 240px; height: 240px;
+      border-radius: 50%;
+      pointer-events: none;
+      background: radial-gradient(circle, rgba(201,162,39,0.13) 0%, rgba(201,162,39,0.04) 40%, transparent 70%);
+      transform: translate(-50%, -50%);
+      z-index: 3;
+      will-change: left, top;
+      mix-blend-mode: screen;
+    }
+
     /* ── Cinematic: Vignette + depth fog ──────────────────── */
     #vignette {
       position: fixed; inset: 0;
@@ -647,6 +660,7 @@
   <div class="intro-sub">Est. 2019 — Electronic Music</div>
 </div>
 <div id="depth-fog"></div>
+<div id="cursor-glow"></div>
 <canvas id="bg"></canvas>
 <div id="vignette"></div>
 <div class="flash"></div>
@@ -1312,11 +1326,39 @@ var baseAngles = CARDS.map(function(_, i) { return (TWO_PI / n) * i; });
 
 // ─── Mouse tracking for depth parallax + refraction CSS vars ──────────────
 var mouseNX = 0, mouseNY = 0;
+var planetTiltRX = 0, planetTiltRY = 0; // proximity-based planet tilt targets
+var cursorGlowEl = document.getElementById("cursor-glow");
 window.addEventListener("mousemove", function(e) {
   mouseNX = (e.clientX / window.innerWidth  - 0.5) * 2;
   mouseNY = (e.clientY / window.innerHeight - 0.5) * 2;
   document.documentElement.style.setProperty("--mx", (e.clientX / window.innerWidth  * 100).toFixed(1) + "%");
   document.documentElement.style.setProperty("--my", (e.clientY / window.innerHeight * 100).toFixed(1) + "%");
+
+  // Cursor force field — gold glow follows pointer
+  if (cursorGlowEl) {
+    cursorGlowEl.style.left = e.clientX + "px";
+    cursorGlowEl.style.top  = e.clientY + "px";
+  }
+
+  // Proximity planet tilt — intensifies as cursor approaches the planet
+  if (logoCoreEl) {
+    var rect  = logoCoreEl.getBoundingClientRect();
+    var cx    = rect.left + rect.width  / 2;
+    var cy    = rect.top  + rect.height / 2;
+    var dx    = e.clientX - cx;
+    var dy    = e.clientY - cy;
+    var dist  = Math.sqrt(dx * dx + dy * dy);
+    var PROX  = 320;
+    if (dist < PROX) {
+      var force = (PROX - dist) / PROX;
+      planetTiltRX = dy * 0.028 * force;
+      planetTiltRY = dx * 0.028 * force;
+    } else {
+      // Gentle global lean when far from planet
+      planetTiltRX = mouseNY * -3;
+      planetTiltRY = mouseNX *  3;
+    }
+  }
 });
 
 // ─── Atmospheric glow halos (behind cards in DOM) ─────────────────────────
@@ -1675,9 +1717,9 @@ function updateLogo(t) {
   var gR2 = ((e - 0.6) * 110 + 75).toFixed(0);
   var gR3 = ((e - 0.6) * 160 + 120).toFixed(0);
 
-  // Mouse tilt — subtle, reads mouseNX/mouseNY [-1,1]
-  var tiltX = (mouseNY * -5).toFixed(2);
-  var tiltY = (mouseNX *  5).toFixed(2);
+  // Proximity tilt — set by mousemove handler based on cursor distance to planet
+  var tiltX = planetTiltRX.toFixed(2);
+  var tiltY = planetTiltRY.toFixed(2);
 
   logoCoreEl.style.transform =
     "translate(" + ox + "px," + oy + "px)" +
