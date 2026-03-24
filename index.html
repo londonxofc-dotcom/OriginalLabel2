@@ -196,6 +196,28 @@
     }
     .flash.active { opacity: 1; }
 
+    /* ── Click shockwave ring ──────────────────────────────── */
+    .shockwave {
+      position: fixed;
+      border-radius: 50%;
+      pointer-events: none;
+      border: 1px solid rgba(201,162,39,0.55);
+      box-shadow: 0 0 20px rgba(201,162,39,0.25), inset 0 0 12px rgba(255,255,255,0.06);
+      transform: translate(-50%, -50%) scale(0);
+      animation: shockExpand 0.65s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+      z-index: 4;
+    }
+    .shockwave-2 {
+      border-color: rgba(255,255,255,0.18);
+      box-shadow: none;
+      animation-duration: 0.85s;
+      animation-delay: 0.05s;
+    }
+    @keyframes shockExpand {
+      0%   { width:  20px; height:  20px; opacity: 0.85; }
+      100% { width: 520px; height: 520px; opacity: 0;    }
+    }
+
     /* ── Cinematic: Orbit rings ───────────────────────────── */
     .orbit-ring {
       position: absolute; width: 140%; height: 140%; border-radius: 50%;
@@ -1704,9 +1726,9 @@ function updateLogo(t) {
   if (!logoCoreEl) return;
   var e = energyLevel;
 
-  // Breathing — slow sine pulse layered on top of energy scale
+  // Breathing — slow sine pulse layered on top of energy scale + shock burst
   var breath = 1 + Math.sin(t * 0.85) * 0.022;
-  var sc     = breath * (1 + (e - 0.6) * 0.06);
+  var sc     = breath * (1 + (e - 0.6) * 0.06) * (1 + shockPulse * 0.10);
 
   // Subtle float drift
   var ox  = (Math.sin(t * 0.62) * 3.8).toFixed(2);
@@ -1739,7 +1761,7 @@ function updateLogo(t) {
     var ringSpeeds = [0.18, 0.11, 0.07]; // deg/sec
     for (var ri = 0; ri < planetRingEls.length; ri++) {
       var ringRot = t * ringSpeeds[ri] * 57.2958; // rad→deg
-      var ringScale = 1 + bass * (0.06 + ri * 0.035);
+      var ringScale = 1 + bass * (0.06 + ri * 0.035) + shockPulse * (0.10 + ri * 0.05);
       planetRingEls[ri].style.transform =
         "translate(-50%,-50%) rotateX(72deg) rotateZ(" + ringRot.toFixed(2) + "deg)" +
         " scale(" + ringScale.toFixed(4) + ")";
@@ -1776,6 +1798,7 @@ function animate(ts) {
   // ── Energy lock — velocity spikes charge the field ───────────────────────
   var rawEnergy = 0.6 + Math.min(Math.abs(velocity) * 200, 2.2);
   energyLevel  += (rawEnergy - energyLevel) * 0.07;
+  if (shockPulse > 0.001) shockPulse *= 0.88; else shockPulse = 0;
 
   updateCards();
 
@@ -2059,6 +2082,21 @@ cardEls.forEach(function(el, i) {
     if (tSoft < 0.70) return;
     openOverlay(i);
   });
+});
+
+// ─── Click shockwave ───────────────────────────────────────────────────────
+var shockPulse = 0; // decays 1→0 per frame, drives planet + ring burst
+window.addEventListener("click", function(e) {
+  // Two concentric expanding rings from click origin
+  [false, true].forEach(function(isOuter) {
+    var sw = document.createElement("div");
+    sw.className = "shockwave" + (isOuter ? " shockwave-2" : "");
+    sw.style.left = e.clientX + "px";
+    sw.style.top  = e.clientY + "px";
+    document.body.appendChild(sw);
+    setTimeout(function() { if (sw.parentNode) sw.parentNode.removeChild(sw); }, 950);
+  });
+  shockPulse = 1.0;
 });
 
 // ─── Cinematic flash cut ───────────────────────────────────────────────────
