@@ -1,963 +1,2486 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Original Label — Miami</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <title>Circular Carousel</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --black:    #080808;
-      --white:    #F2F2F2;
-      --muted:    #4A4A4A;
-      --muted-lt: #888888;
-      --accent:   #D4FF00;
-      --fd: 'Bebas Neue', sans-serif;
-      --fb: 'Inter', sans-serif;
-      --fm: 'Space Mono', monospace;
-    }
-
-    html, body {
+    html {
       width: 100%; height: 100%;
-      background: var(--black);
-      color: var(--white);
-      font-family: var(--fb);
-      overflow: hidden;
-      cursor: none;
+      overflow-x: hidden;
+      scroll-behavior: auto;
     }
-
-    /* ── Grain ── */
-    body::after {
-      content: '';
-      position: fixed; inset: 0; z-index: 950; pointer-events: none;
-      opacity: 0.035;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+    body {
+      width: 100%;
+      background: #030308;
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
     }
-
-
-    /* ── Animated background canvas ── */
-    #bg-canvas {
-      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    #stage {
+      position: relative;
+      width: 100%;
+      max-width: 1100px;
+      height: 620px;
     }
-
-    /* ── Custom cursor ── */
-    #cur {
-      position: fixed; z-index: 999; pointer-events: none;
-      width: 10px; height: 10px;
-      background: var(--accent);
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      mix-blend-mode: difference;
-      transition: width .3s cubic-bezier(.22,1,.36,1),
-                  height .3s cubic-bezier(.22,1,.36,1);
+    canvas#bg {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
     }
-    #cur.big { width: 52px; height: 52px; }
-
-    /* ── Stage ── */
-    #stage { position: fixed; inset: 0; overflow: hidden; z-index: 1; }
-
-    /* ── Circle items ── */
-    .c-item {
-      position: absolute;
-      border-radius: 50%;
-      overflow: hidden;
-      cursor: none;
-      will-change: transform, opacity, left, filter;
-      user-select: none;
-      box-shadow: 0 0 40px rgba(212,255,0,0.03);
-      transition: box-shadow 0.8s ease;
+    @keyframes btnGlow {
+      0%,100% { box-shadow: 0 0 0px 0px rgba(201,162,39,0); }
+      50%      { box-shadow: 0 0 18px 4px rgba(201,162,39,0.35); }
     }
-    .c-item.active {
-      box-shadow:
-        0 0 90px  rgba(212,255,0,0.13),
-        0 0 220px rgba(212,255,0,0.05),
-        0 0 400px rgba(212,255,0,0.02);
+    @keyframes rimGlow {
+      0%,100% { box-shadow: inset 0 0 0 1px rgba(201,162,39,0.18), 0 0 0px  0px rgba(201,162,39,0); }
+      50%      { box-shadow: inset 0 0 0 1px rgba(201,162,39,0.50), 0 0 10px 2px rgba(201,162,39,0.16); }
     }
-    .c-item:not(.active):hover .c-ring-svg { opacity: 0.32 !important; }
-
-    /* ── Slides ── */
-    .c-slide {
-      position: absolute; inset: 0;
-      border-radius: 50%;
-      background-size: cover;
-      background-position: center;
-      will-change: opacity;
+    @keyframes cardSweep {
+      0%   { background-position: -300% center; }
+      100% { background-position: 300% center; }
     }
-    .c-slide.contain {
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-color: var(--black);
+    @keyframes cardSweepB {
+      0%   { background-position: 300% center; }
+      100% { background-position: -300% center; }
     }
-    .c-slide.fallback {
-      background: radial-gradient(circle at 40% 55%,
-        rgba(212,255,0,.06) 0%, rgba(20,20,20,.9) 60%, #0a0a0a 100%);
+    .card-shine {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: linear-gradient(108deg,
+        transparent 35%,
+        rgba(255,255,255,0.055) 50%,
+        transparent 65%);
+      background-size: 300% 100%;
+      pointer-events: none;
     }
-
-    /* ── Text logo inside story circle ── */
-    .c-logo-text {
-      position: absolute;
+    .card-inner-ring {
+      position: absolute; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.055);
+      pointer-events: none;
       top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      display: flex; flex-direction: column;
-      align-items: center; gap: 10px;
-      pointer-events: none;
-      z-index: 2;
-      text-align: center;
+      transform: translate(-50%,-50%);
     }
-    .c-logo-text-main {
-      font-family: var(--fd);
-      font-size: clamp(28px, 4.2vw, 62px);
-      letter-spacing: 0.13em;
-      color: var(--white);
-      line-height: 1;
-      text-shadow: 0 0 40px rgba(212,255,0,0.12);
+    .nav-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid rgba(201,162,39,0.35);
+      color: rgba(255,255,255,0.70);
+      font-size: 20px;
+      cursor: pointer;
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1; padding: 0;
+      animation: btnGlow 3s ease-in-out infinite;
+      transition: border-color 0.2s, color 0.2s;
     }
-    .c-logo-text-divider {
-      width: 36px; height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(212,255,0,0.45), transparent);
+    .nav-btn:hover {
+      border-color: rgba(201,162,39,0.85);
+      color: #fff;
+      box-shadow: 0 0 22px 6px rgba(201,162,39,0.45) !important;
     }
-    .c-logo-text-sub {
-      font-family: var(--fm);
-      font-size: clamp(7px, 0.9vw, 10px);
-      letter-spacing: 0.32em;
-      color: var(--accent);
-      opacity: 0.6;
-      text-transform: uppercase;
-    }
-
-    /* ── Overlay ── */
-    .c-overlay {
+    .card-rim {
       position: absolute; inset: 0; border-radius: 50%;
-      background: radial-gradient(circle at center,
-        rgba(8,8,8,.25) 0%,
-        rgba(8,8,8,.5) 48%,
-        rgba(8,8,8,.88) 100%);
       pointer-events: none;
-    }
-    /* lighter overlay for story so logo pops */
-    .c-item[data-id="story"] .c-overlay {
-      background: radial-gradient(circle at center,
-        rgba(8,8,8,.1) 0%,
-        rgba(8,8,8,.35) 50%,
-        rgba(8,8,8,.85) 100%);
+      animation: rimGlow 6s linear infinite;
     }
 
-    /* ── Animated SVG Ring ── */
-    .c-ring-svg {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%;
-      pointer-events: none; overflow: visible;
-      opacity: 0; transition: opacity 0.7s;
-      z-index: 4;
+    /* ── Cinematic: Logo glass orb ─────────────────────────── */
+    .logo-core {
+      width: 130px; height: 130px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      backdrop-filter: blur(20px);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: inset 0 0 40px rgba(255,255,255,0.06), 0 0 60px rgba(255,200,80,0.15);
+      will-change: transform, box-shadow;
+      margin-bottom: 10px;
+      position: relative;
     }
-    .c-item.active .c-ring-svg { opacity: 1; }
-    .c-item:not(.active) .c-ring-svg { opacity: 0.08; }
-
-    .c-ring-track {
-      fill: none;
-      stroke: rgba(212,255,0,0.06);
-      stroke-width: 0.4;
+    .logo-core::before {
+      content: ''; position: absolute; inset: 0; border-radius: 50%;
+      backdrop-filter: blur(30px); opacity: 0.6; pointer-events: none;
     }
-    .c-ring-arc1 {
-      fill: none;
-      stroke: rgba(212,255,0,0.50);
-      stroke-width: 0.55;
-      stroke-linecap: round;
-      stroke-dasharray: 42 260;
-      filter: drop-shadow(0 0 2px rgba(212,255,0,0.55));
-    }
-    .c-ring-arc2 {
-      fill: none;
-      stroke: rgba(212,255,0,0.16);
-      stroke-width: 0.3;
-      stroke-linecap: round;
-      stroke-dasharray: 20 282;
-    }
-    @keyframes arc-cw  { to { stroke-dashoffset: -302; } }
-    @keyframes arc-ccw { to { stroke-dashoffset:  302; } }
-    .c-ring-arc1 { animation: arc-cw  10s linear infinite; }
-    .c-ring-arc2 { animation: arc-ccw 18s linear infinite; }
-
-    /* ── Ripple canvas ── */
-    #ripple-canvas {
-      position: fixed; inset: 0; z-index: 2; pointer-events: none;
+    .logo-img {
+      width: 65%; pointer-events: none; position: relative; z-index: 1;
+      mix-blend-mode: screen; opacity: 0.9;
+      filter: brightness(1.2) contrast(1.1) drop-shadow(0 0 10px rgba(255,255,255,0.15));
     }
 
-    /* ── Entrance shimmer ── */
-    .c-shimmer {
-      position: absolute; inset: 0; border-radius: 50%;
-      background: radial-gradient(circle at center,
-        rgba(212,255,0,0.22) 0%,
-        rgba(212,255,0,0.06) 40%,
-        transparent 68%);
-      opacity: 0;
-      pointer-events: none;
-      z-index: 3;
-      mix-blend-mode: screen;
+    /* ── Cinematic: Vignette + depth fog ──────────────────── */
+    #vignette {
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse 68% 58% at 50% 50%, transparent 38%, rgba(0,0,0,0.62) 100%);
+      pointer-events: none; z-index: 2;
+    }
+    #depth-fog {
+      position: fixed; inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(80,40,120,0.18), transparent 62%);
+      pointer-events: none; z-index: 0;
     }
 
-    /* ── Content ── */
-    .c-content {
-      position: absolute; inset: 0;
+    /* ── Cinematic: Flash cut ─────────────────────────────── */
+    .flash {
+      position: fixed; inset: 0; background: #000;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.14s ease; z-index: 9998;
+    }
+    .flash.active { opacity: 1; }
+
+    /* ── Cinematic: Orbit rings ───────────────────────────── */
+    .orbit-ring {
+      position: absolute; width: 140%; height: 140%; border-radius: 50%;
+      border: 1px solid rgba(255,215,120,0.12);
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%) rotate(0deg);
+      animation: orbitSpin 20s linear infinite;
+      pointer-events: none; z-index: 5;
+    }
+    .orbit-ring.ring-2 {
+      width: 176%; height: 176%;
+      border-color: rgba(150,120,255,0.09);
+      animation-duration: 30s; animation-direction: reverse;
+    }
+    @keyframes orbitSpin {
+      to { transform: translate(-50%,-50%) rotate(360deg); }
+    }
+
+    /* ── Cinematic: Active card refraction highlight ──────── */
+    .card-active::before {
+      content: ''; position: absolute; inset: 0; border-radius: 50%;
+      background: radial-gradient(circle at var(--mx,50%) var(--my,50%),
+        rgba(255,255,255,0.09), transparent 45%);
+      opacity: 0.5; pointer-events: none; z-index: 2;
+    }
+
+    /* ── Cinematic: Intro sequence ────────────────────────── */
+    #intro {
+      position: fixed; inset: 0; background: #000; z-index: 99999;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      pointer-events: none;
+      overflow: hidden; transition: opacity 1s ease;
     }
-    .c-num {
-      font-family: var(--fm); font-size: 11px; letter-spacing: .2em;
-      color: var(--accent); opacity: .65; margin-bottom: 12px;
+    #intro-canvas {
+      position: absolute; inset: 0; width: 100%; height: 100%;
     }
-    .c-label {
-      font-family: var(--fd);
-      font-size: clamp(48px, 7.5vw, 104px);
-      line-height: .88; letter-spacing: .02em;
-      color: var(--white); text-align: center;
+    .intro-logo-text {
+      position: relative; z-index: 2;
+      font-size: 46px; letter-spacing: 11px;
+      color: rgba(255,255,255,0.92);
+      opacity: 0; transform: scale(0.88);
+      transition: opacity 1.2s cubic-bezier(.2,1,.2,1), transform 1.2s cubic-bezier(.2,1,.2,1);
+      text-transform: uppercase;
+      font-family: system-ui, sans-serif; font-weight: 300;
     }
-    .c-sub {
-      font-family: var(--fb); font-size: clamp(11px, 1.2vw, 14px);
-      font-weight: 300; letter-spacing: .16em; text-transform: uppercase;
-      color: var(--muted-lt); margin-top: 14px;
+    .intro-logo-text.active {
+      opacity: 1; transform: scale(1);
+      animation: glitch 0.18s ease 1.3s 2;
     }
-
-    /* ── Wave + Enter — outside circles, between circle bottom and nav dots ── */
-    #wave-outer {
-      position: fixed;
-      bottom: 88px;
-      left: 50%;
-      transform: translateX(-50%);
-      pointer-events: none;
-      z-index: 10;
-      opacity: 0;
-      transition: opacity .8s ease;
+    .intro-sub {
+      position: relative; z-index: 2;
+      margin-top: 14px;
+      font-size: 10px; letter-spacing: 0.30em;
+      color: rgba(201,162,39,0.55); text-transform: uppercase;
+      opacity: 0; transition: opacity 0.9s ease;
+      font-family: system-ui, sans-serif;
     }
-    #wave-outer.visible { opacity: 1; }
-
-    #enter-outer {
-      position: fixed;
-      bottom: 56px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-family: var(--fm); font-size: 9px; letter-spacing: .26em;
-      text-transform: uppercase; color: var(--accent);
-      white-space: nowrap;
-      opacity: 0; transition: opacity .5s;
-      z-index: 10;
-      cursor: none;
-    }
-    #enter-outer.visible { opacity: .7; }
-
-    /* ── Slide dots ── */
-    .c-slide-dots {
-      position: absolute; bottom: 8%; left: 50%;
-      transform: translateX(-50%);
-      display: flex; gap: 6px; align-items: center;
-      pointer-events: none; opacity: 0; transition: opacity .5s;
-    }
-    .c-item.active .c-slide-dots { opacity: .55; }
-    .c-sdot {
-      width: 4px; height: 4px; border-radius: 50%;
-      background: var(--muted-lt);
-      transition: background .4s, transform .4s;
-    }
-    .c-sdot.on { background: var(--accent); transform: scale(1.5); }
-
-    /* ── UI Chrome ── */
-    #logo {
-      position: fixed; top: 32px; left: 40px; z-index: 200;
-      font-family: var(--fd); font-size: 22px; letter-spacing: .1em;
-      color: var(--white); opacity: .9;
-    }
-    #logo span { color: var(--accent); }
-
-    #hint {
-      position: fixed; top: 50%; right: 36px; z-index: 200;
-      transform: translateY(-50%);
-      font-family: var(--fm); font-size: 8px; letter-spacing: .18em;
-      color: var(--muted); writing-mode: vertical-rl; opacity: .45;
+    .intro-sub.active { opacity: 1; }
+    @keyframes glitch {
+      0%  { transform: scale(1) translateX(0); }
+      20% { transform: scale(1) translateX(-3px); }
+      50% { transform: scale(1) translateX(3px); }
+      80% { transform: scale(1) translateX(-1px); }
+      100%{ transform: scale(1) translateX(0); }
     }
 
-    #dots {
-      position: fixed; bottom: 36px; left: 50%;
-      transform: translateX(-50%); z-index: 200;
-      display: flex; gap: 10px; align-items: center;
-    }
-    .dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--muted); transition: background .4s, transform .4s;
-    }
-    .dot.active { background: var(--accent); transform: scale(1.4); }
-
-    #counter {
-      position: fixed; bottom: 36px; right: 40px; z-index: 200;
-      font-family: var(--fm); font-size: 10px;
-      letter-spacing: .14em; color: var(--muted-lt);
-    }
-    #counter em { color: var(--white); font-style: normal; }
-
-    /* ── Stage + chrome hidden until intro clears ── */
-    #stage { visibility: hidden; }
-    #logo, #hint, #dots, #counter { opacity: 0; }
-
-    /* ── Intro ── */
-    #intro {
-      position: fixed; inset: 0; z-index: 960;
-      background: transparent;
+    /* ── Scroll-driven panels ───────────────────────────── */
+    #scroll-space { position: relative; height: 400vh; pointer-events: none; }
+    .panel {
+      position: fixed; inset: 0;
       display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 18px;
+      opacity: 0; pointer-events: none;
+      transform: scale(0.97);
+      transition: opacity 0.75s cubic-bezier(.2,1,.2,1), transform 0.75s cubic-bezier(.2,1,.2,1);
+      z-index: 10; overflow: hidden;
     }
-    #intro-logo {
-      display: flex; flex-direction: column;
-      align-items: center; gap: 14px;
-      opacity: 0;
+    .panel.active { opacity: 1; pointer-events: all; transform: scale(1); }
+    #panel-hero   { z-index: 5; }
+    .p-fog { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+    .p-content {
+      position: relative; z-index: 2;
+      display: flex; gap: 80px; align-items: center;
+      max-width: 900px; width: 100%; padding: 0 60px;
+      opacity: 0; transform: translateY(24px);
+      transition: opacity 0.8s ease 0.2s, transform 0.8s ease 0.2s;
     }
-    .intro-logo-main {
-      font-family: var(--fd);
-      font-size: clamp(52px, 9vw, 128px);
-      letter-spacing: 0.14em;
-      color: var(--white);
-      line-height: 1;
-      text-shadow:
-        0 0 60px rgba(212,255,0,0.12),
-        0 0 120px rgba(212,255,0,0.05);
+    .panel.active .p-content { opacity: 1; transform: translateY(0); }
+    .p-content--centered { flex-direction: column; gap: 0; align-items: flex-start; }
+    .p-content--contact  { align-items: center; text-align: center; }
+    .p-vertical-label {
+      font-size: 120px; font-weight: 700; color: rgba(255,255,255,0.04);
+      letter-spacing: -0.04em; line-height: 1; flex-shrink: 0;
+      font-family: system-ui, sans-serif; user-select: none;
     }
-    .intro-logo-divider {
-      width: 60px; height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(212,255,0,0.5), transparent);
+    .p-body { flex: 1; }
+    .p-eyebrow {
+      font-size: 10px; letter-spacing: 0.25em; color: rgba(201,162,39,0.55);
+      text-transform: uppercase; margin-bottom: 14px; font-family: system-ui, sans-serif;
     }
-    .intro-logo-sub {
-      font-family: var(--fm);
-      font-size: clamp(9px, 1.1vw, 13px);
-      letter-spacing: 0.38em;
-      color: var(--accent);
-      opacity: 0.65;
+    .p-title {
+      font-size: 72px; font-weight: 300; color: rgba(255,255,255,0.92);
+      letter-spacing: -0.03em; line-height: 1;
+      font-family: system-ui, sans-serif; margin-bottom: 28px;
+    }
+    .p-divider { width: 40px; height: 1px; background: rgba(201,162,39,0.4); margin-bottom: 32px; }
+    .p-count {
+      align-self: flex-end; font-size: 10px; letter-spacing: 0.22em;
+      color: rgba(255,255,255,0.22); text-transform: uppercase;
+      font-family: system-ui, sans-serif; writing-mode: vertical-rl;
+    }
+
+    /* ── Artist cards (ARTISTS panel) ─────────────────── */
+    .p-artist-grid { display: flex; gap: 16px; flex-wrap: wrap; }
+    .artist-card {
+      width: 126px; border-radius: 14px; overflow: hidden; cursor: pointer;
+      position: relative; background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      transition: transform 0.5s cubic-bezier(.2,1,.2,1), box-shadow 0.5s ease, border-color 0.3s ease;
+    }
+    .artist-card:hover {
+      transform: translateY(-5px) scale(1.04);
+      border-color: rgba(255,140,80,0.35);
+      box-shadow: 0 18px 44px rgba(255,80,20,0.22);
+    }
+    .artist-card img {
+      width: 100%; aspect-ratio: 1; object-fit: cover; display: block;
+      pointer-events: none; filter: brightness(0.85) saturate(1.1);
+      transition: filter 0.4s ease;
+    }
+    .artist-card:hover img { filter: brightness(1.0) saturate(1.3); }
+    .artist-card-name {
+      padding: 9px 11px 11px; font-size: 9px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: rgba(255,255,255,0.60); font-family: system-ui, sans-serif;
+    }
+    .artist-card-more {
+      width: 126px; height: 126px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.09);
+      font-size: 9px; letter-spacing: 0.18em; color: rgba(255,255,255,0.22);
+      text-transform: uppercase; font-family: system-ui, sans-serif; cursor: default;
+    }
+
+    /* ── Fullscreen artist overlay ────────────────────── */
+    #artist-view {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+      backdrop-filter: blur(22px); opacity: 0; pointer-events: none;
+      transition: opacity 0.55s ease; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #artist-view.active { opacity: 1; pointer-events: all; }
+    .av-inner {
+      max-width: 760px; width: 100%; padding: 60px;
+      display: flex; gap: 60px; align-items: center;
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s;
+    }
+    #artist-view.active .av-inner { opacity: 1; transform: translateY(0); }
+    .av-image {
+      width: 220px; height: 220px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      box-shadow: 0 0 60px rgba(255,140,80,0.28), 0 20px 60px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+    .av-image img { width: 100%; height: 100%; object-fit: cover; }
+    .av-text { flex: 1; }
+    .av-eyebrow {
+      font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+      color: rgba(255,140,80,0.6); font-family: system-ui, sans-serif; margin-bottom: 12px;
+    }
+    .av-name {
+      font-size: 48px; font-weight: 300; letter-spacing: -0.02em;
+      color: rgba(255,255,255,0.95); line-height: 1.05;
+      font-family: system-ui, sans-serif; margin-bottom: 18px;
+    }
+    .av-desc {
+      font-size: 14px; line-height: 1.75; color: rgba(255,255,255,0.48);
+      font-family: system-ui, sans-serif; margin-bottom: 24px;
+    }
+    .av-genre {
+      font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: rgba(201,162,39,0.5); font-family: system-ui, sans-serif; margin-bottom: 28px;
+    }
+    .av-play-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 10px 22px; border-radius: 30px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.75); font-size: 10px; letter-spacing: 0.14em;
+      text-transform: uppercase; font-family: system-ui, sans-serif; cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .av-play-btn:hover { background: rgba(255,140,80,0.12); border-color: rgba(255,140,80,0.3); color: #fff; }
+    .av-play-btn.playing { border-color: rgba(255,140,80,0.55); color: rgba(255,140,80,0.9); }
+    .av-close {
+      position: absolute; top: 34px; right: 42px; font-size: 22px;
+      color: rgba(255,255,255,0.28); cursor: pointer; background: none; border: none;
+      padding: 8px; line-height: 1; transition: color 0.2s; font-family: system-ui, sans-serif;
+    }
+    .av-close:hover { color: rgba(255,255,255,0.80); }
+
+    /* ── Album grid (inside artist overlay) ──────────── */
+    .av-inner {
+      flex-direction: column;
+      align-items: flex-start;
+      max-width: 860px;
+      gap: 0;
+    }
+    .av-top-row {
+      display: flex; gap: 60px; align-items: center;
+      width: 100%; margin-bottom: 44px;
+    }
+    .av-discography-label {
+      font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+      color: rgba(255,255,255,0.22); font-family: system-ui,sans-serif; margin-bottom: 18px;
+    }
+    #album-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%;
+    }
+    .album-card {
+      aspect-ratio: 1; border-radius: 10px; overflow: hidden; cursor: pointer;
+      position: relative; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.07);
+      transition: transform 0.35s cubic-bezier(.22,1,.36,1), box-shadow 0.35s ease;
+    }
+    .album-card:hover { transform: scale(1.05); box-shadow: 0 16px 40px rgba(0,0,0,0.6); }
+    .album-card-cover {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: filter 0.3s ease;
+    }
+    .album-card:hover .album-card-cover { filter: brightness(1.15); }
+    .album-card-info {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.82));
+      padding: 32px 14px 14px;
+    }
+    .album-card-title {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      color: rgba(255,255,255,0.88); font-family: system-ui,sans-serif;
       text-transform: uppercase;
     }
+    .album-card-year {
+      font-size: 9px; color: rgba(255,255,255,0.35); letter-spacing: 0.1em;
+      font-family: system-ui,sans-serif; margin-top: 2px;
+    }
+
+    /* ── Album-view fullscreen overlay ───────────────── */
+    #album-view {
+      position: fixed; inset: 0; z-index: 10000;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.7s ease;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #album-view.active { opacity: 1; pointer-events: all; }
+    .alv-bg {
+      position: absolute; inset: 0;
+      background-size: cover; background-position: center;
+      filter: blur(50px) brightness(0.28) saturate(1.4);
+      transform: scale(1.08);
+    }
+    .alv-content {
+      position: relative; z-index: 1;
+      max-width: 700px; width: 100%; padding: 60px;
+      display: flex; gap: 52px; align-items: flex-start;
+      opacity: 0; transform: translateY(24px);
+      transition: opacity 0.5s ease 0.18s, transform 0.5s ease 0.18s;
+    }
+    #album-view.active .alv-content { opacity: 1; transform: translateY(0); }
+    .alv-cover {
+      width: 200px; height: 200px; border-radius: 12px; overflow: hidden; flex-shrink: 0;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+    .alv-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .alv-info { flex: 1; }
+    .alv-artist-name {
+      font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+      color: rgba(255,255,255,0.35); font-family: system-ui,sans-serif; margin-bottom: 8px;
+    }
+    .alv-title {
+      font-size: 34px; font-weight: 300; letter-spacing: -0.02em;
+      color: rgba(255,255,255,0.95); line-height: 1.1;
+      font-family: system-ui,sans-serif; margin-bottom: 28px;
+    }
+    #album-tracks { display: flex; flex-direction: column; gap: 2px; }
+    .alv-track {
+      display: flex; align-items: center; gap: 16px;
+      padding: 10px 14px; border-radius: 8px; cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .alv-track:hover { background: rgba(255,255,255,0.07); }
+    .alv-track.playing { background: rgba(255,255,255,0.10); }
+    .alv-track-num {
+      font-size: 9px; color: rgba(255,255,255,0.25); width: 18px; text-align: right;
+      font-family: system-ui,sans-serif; flex-shrink: 0;
+    }
+    .alv-track.playing .alv-track-num { color: rgba(201,162,39,0.8); }
+    .alv-track-name {
+      font-size: 13px; color: rgba(255,255,255,0.72); font-family: system-ui,sans-serif;
+      letter-spacing: 0.02em; flex: 1;
+    }
+    .alv-track.playing .alv-track-name { color: rgba(255,255,255,0.95); }
+    .alv-track-dur {
+      font-size: 9px; color: rgba(255,255,255,0.22); font-family: system-ui,sans-serif;
+      letter-spacing: 0.06em;
+    }
+    .alv-back {
+      position: absolute; top: 30px; left: 40px;
+      background: none; border: none; cursor: pointer;
+      color: rgba(255,255,255,0.35); font-size: 10px; letter-spacing: 0.16em;
+      text-transform: uppercase; font-family: system-ui,sans-serif;
+      transition: color 0.2s; padding: 8px;
+    }
+    .alv-back:hover { color: rgba(255,255,255,0.80); }
+    .alv-close {
+      position: absolute; top: 30px; right: 40px; font-size: 22px;
+      color: rgba(255,255,255,0.28); cursor: pointer; background: none; border: none;
+      padding: 8px; transition: color 0.2s; font-family: system-ui,sans-serif;
+    }
+    .alv-close:hover { color: rgba(255,255,255,0.80); }
+
+    /* ── Music player bar ─────────────────────────────── */
+    #player-bar {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 18px;
+      padding: 11px 24px; border-radius: 40px;
+      backdrop-filter: blur(20px); background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      z-index: 8000; opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease; white-space: nowrap;
+    }
+    #player-bar.visible { opacity: 1; pointer-events: all; }
+    .pb-btn {
+      width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer;
+      background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.75);
+      font-size: 12px; display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, color 0.2s; font-family: system-ui, sans-serif;
+    }
+    .pb-btn:hover { background: rgba(255,140,80,0.18); color: #fff; }
+    .pb-btn.active { background: rgba(255,140,80,0.22); color: rgba(255,140,80,0.9); }
+    .pb-track {
+      font-size: 10px; letter-spacing: 0.10em; color: rgba(255,255,255,0.50);
+      font-family: system-ui, sans-serif; min-width: 120px;
+    }
+    .pb-progress {
+      width: 100px; height: 2px; background: rgba(255,255,255,0.12); border-radius: 1px;
+      overflow: hidden; cursor: pointer;
+    }
+    .pb-progress-fill {
+      height: 100%; width: 0%; background: rgba(201,162,39,0.7); border-radius: 1px;
+      transition: width 0.25s linear;
+    }
+    .pb-energy {
+      width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(201,162,39,0.5);
+      animation: pbPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pbPulse {
+      0%,100% { transform: scale(1);   opacity: 0.5; }
+      50%      { transform: scale(1.6); opacity: 1.0; }
+    }
+
+    /* ── Waveform canvas ────────────────────────────────── */
+    #waveform {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 90px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 7500;
+      transition: opacity 0.6s ease;
+    }
+    #waveform.visible { opacity: 0.85; }
+
+    /* ── Releases panel ────────────────────────────────── */
+    .p-releases-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 32px; }
+    .p-release {
+      display: flex; align-items: baseline; gap: 18px; font-family: system-ui, sans-serif;
+      opacity: 0.88; transition: opacity 0.2s;
+    }
+    .p-release:hover { opacity: 1; }
+    .p-release-num  { font-size: 10px; color: rgba(201,162,39,0.5); letter-spacing: 0.1em; width: 30px; flex-shrink: 0; }
+    .p-release-name { font-size: 16px; color: rgba(255,255,255,0.80); font-weight: 300; letter-spacing: 0.02em; }
+    .p-release-artist { font-size: 11px; color: rgba(255,255,255,0.32); letter-spacing: 0.1em; }
+    .p-release-more { font-size: 10px; letter-spacing: 0.15em; color: rgba(255,255,255,0.20); text-transform: uppercase; }
+
+    /* ── Contact panel ─────────────────────────────────── */
+    .p-contact-lines { display: flex; flex-direction: column; gap: 28px; }
+    .p-contact-line  { display: flex; flex-direction: column; gap: 5px; font-family: system-ui, sans-serif; }
+    .p-contact-label { font-size: 9px; letter-spacing: 0.25em; color: rgba(201,162,39,0.45); text-transform: uppercase; }
+    .p-contact-value { font-size: 16px; color: rgba(255,255,255,0.68); font-weight: 300; letter-spacing: 0.05em; transition: color 0.2s; }
+    .p-contact-value:hover { color: rgba(255,255,255,0.92); }
+
+    /* ── Section progress dots ─────────────────────────── */
+    #section-dots {
+      position: fixed; right: 22px; top: 50%; transform: translateY(-50%);
+      display: flex; flex-direction: column; gap: 10px; z-index: 500; pointer-events: none;
+    }
+    .sect-dot {
+      width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.18);
+      transition: background 0.4s ease, height 0.4s ease, border-radius 0.4s ease;
+    }
+    .sect-dot.active { background: rgba(201,162,39,0.85); height: 14px; border-radius: 2px; }
+
+    /* ── Scroll hint ───────────────────────────────────── */
+    #scroll-hint {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      z-index: 100; pointer-events: none; opacity: 0; transition: opacity 0.6s ease;
+    }
+    #scroll-hint.visible { opacity: 1; }
+    .scroll-hint-text {
+      font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+      color: rgba(255,255,255,0.18); font-family: system-ui, sans-serif;
+    }
+    .scroll-hint-line {
+      width: 1px; height: 22px;
+      background: linear-gradient(to bottom, rgba(201,162,39,0.35), transparent);
+      animation: scrollHintPulse 2.2s ease-in-out infinite;
+      transform-origin: top;
+    }
+    @keyframes scrollHintPulse {
+      0%,100% { opacity: 0.35; transform: scaleY(0.5); }
+      50%      { opacity: 1.0;  transform: scaleY(1.0); }
+    }
+
   </style>
 </head>
 <body>
-  <canvas id="bg-canvas"></canvas>
-  <canvas id="ripple-canvas"></canvas>
-  <div id="cur"></div>
+<div id="intro">
+  <canvas id="intro-canvas"></canvas>
+  <div class="intro-logo-text">Original Label</div>
+  <div class="intro-sub">Est. 2019 — Electronic Music</div>
+</div>
+<div id="depth-fog"></div>
+<canvas id="bg"></canvas>
+<div id="vignette"></div>
+<div class="flash"></div>
 
-  <div id="intro">
-    <div id="intro-logo">
-      <div class="intro-logo-main">ORIGINAL LABEL</div>
-      <div class="intro-logo-divider"></div>
-      <div class="intro-logo-sub">Est. 2012 — Miami</div>
+<!-- ── HERO panel (carousel) ─────────────────────────────────────────────── -->
+<div class="panel active" id="panel-hero">
+  <div id="stage"></div>
+</div>
+
+<!-- ── ARTISTS panel ──────────────────────────────────────────────────────── -->
+<div class="panel" id="panel-artists">
+  <div class="p-fog" style="background:radial-gradient(ellipse 70% 55% at 35% 50%,rgba(255,100,40,0.14) 0%,transparent 70%);"></div>
+  <div class="p-content">
+    <div class="p-vertical-label">02</div>
+    <div class="p-body">
+      <div class="p-eyebrow">The Roster</div>
+      <h2 class="p-title">Artists</h2>
+      <div class="p-divider"></div>
+      <div class="p-artist-grid">
+        <div class="artist-card" data-artist="0">
+          <img src="carousel/Frames/Artists/Hotboxx-ps4.jpg" alt="Hotboxx" />
+          <div class="artist-card-name">Hotboxx</div>
+        </div>
+        <div class="artist-card" data-artist="1">
+          <img src="carousel/Frames/Artists/abuekev.jpeg" alt="Abuekev" />
+          <div class="artist-card-name">Abuekev</div>
+        </div>
+        <div class="artist-card" data-artist="2">
+          <img src="carousel/Frames/Artists/sundaynoise.jpeg" alt="Sunday Noise" />
+          <div class="artist-card-name">Sunday Noise</div>
+        </div>
+        <div class="artist-card" data-artist="3">
+          <img src="carousel/Frames/Artists/lxofc.png" alt="LXOFC" />
+          <div class="artist-card-name">LXOFC</div>
+        </div>
+        <div class="artist-card-more">+ 20 More</div>
+      </div>
+    </div>
+    <div class="p-count">24 Artists</div>
+  </div>
+</div>
+
+<!-- ── Fullscreen artist overlay ──────────────────────────────────────────── -->
+<div id="artist-view">
+  <button class="av-close" id="av-close">&#x2715;</button>
+  <div class="av-inner">
+    <div class="av-top-row">
+      <div class="av-image"><img id="av-img" src="" alt="" /></div>
+      <div class="av-text">
+        <div class="av-eyebrow">Original Label Artist</div>
+        <div class="av-name" id="av-name"></div>
+        <div class="av-desc" id="av-desc"></div>
+        <div class="av-genre" id="av-genre"></div>
+        <button class="av-play-btn" id="av-play-btn">&#9654; Play Latest</button>
+      </div>
+    </div>
+    <div class="av-discography-label">Discography</div>
+    <div id="album-grid"></div>
+  </div>
+</div>
+
+<!-- ── Album view overlay ─────────────────────────────────────────────────── -->
+<div id="album-view">
+  <div class="alv-bg" id="alv-bg"></div>
+  <button class="alv-back" id="alv-back">&#8592; Back</button>
+  <button class="alv-close" id="alv-close">&#x2715;</button>
+  <div class="alv-content">
+    <div class="alv-cover"><img id="alv-cover-img" src="" alt="" /></div>
+    <div class="alv-info">
+      <div class="alv-artist-name" id="alv-artist-name"></div>
+      <div class="alv-title" id="alv-title"></div>
+      <div id="album-tracks"></div>
     </div>
   </div>
+</div>
 
-  <div id="logo">ORIGINAL<span>.</span>LABEL</div>
-  <div id="hint">SCROLL</div>
-  <div id="dots"></div>
-  <div id="counter"><em>03</em> / 05</div>
-  <div id="stage"></div>
+<!-- ── RELEASES panel ─────────────────────────────────────────────────────── -->
+<div class="panel" id="panel-releases">
+  <div class="p-fog" style="background:radial-gradient(ellipse 65% 55% at 50% 45%,rgba(100,50,210,0.18) 0%,transparent 70%);"></div>
+  <div class="p-content p-content--centered">
+    <div style="display:flex;align-items:baseline;gap:28px;margin-bottom:28px;">
+      <div class="p-vertical-label" style="font-size:88px;">03</div>
+      <div><div class="p-eyebrow">The Catalogue</div><h2 class="p-title">Releases</h2></div>
+    </div>
+    <div class="p-divider"></div>
+    <div class="p-releases-list">
+      <div class="p-release"><span class="p-release-num">001</span><span class="p-release-name">MultiVerse</span><span class="p-release-artist">Dagher (US)</span></div>
+      <div class="p-release"><span class="p-release-num">002</span><span class="p-release-name">Deep Current</span><span class="p-release-artist">Hotboxx</span></div>
+      <div class="p-release"><span class="p-release-num">003</span><span class="p-release-name">Prism Break</span><span class="p-release-artist">Sunday Noise</span></div>
+      <div class="p-release"><span class="p-release-num">004</span><span class="p-release-name">Axiom</span><span class="p-release-artist">Abuekev</span></div>
+      <div class="p-release"><span class="p-release-num">005</span><span class="p-release-name">Night Form</span><span class="p-release-artist">LXOFC</span></div>
+      <div class="p-release p-release-more">+ 35 More Records</div>
+    </div>
+    <div class="p-count" style="writing-mode:horizontal-tb;margin-top:24px;">40+ RECORDS</div>
+  </div>
+</div>
 
-  <canvas id="wave-outer"></canvas>
-  <div id="enter-outer">Enter ↗ Original</div>
+<!-- ── CONTACT panel ──────────────────────────────────────────────────────── -->
+<div class="panel" id="panel-contact">
+  <div class="p-fog" style="background:radial-gradient(ellipse 55% 55% at 50% 50%,rgba(140,60,255,0.22) 0%,transparent 65%);"></div>
+  <div class="p-content p-content--centered p-content--contact">
+    <div class="p-eyebrow">04 — Get In Touch</div>
+    <h2 class="p-title">Contact</h2>
+    <div class="p-divider" style="width:60px;margin:0 auto 36px;"></div>
+    <div class="p-contact-lines">
+      <div class="p-contact-line">
+        <span class="p-contact-label">Bookings &amp; General</span>
+        <span class="p-contact-value">info@originallabel.com</span>
+      </div>
+      <div class="p-contact-line">
+        <span class="p-contact-label">Demo Submissions</span>
+        <span class="p-contact-value">demos@originallabel.com</span>
+      </div>
+      <div class="p-contact-line">
+        <span class="p-contact-label">Instagram</span>
+        <span class="p-contact-value">@originallabel</span>
+      </div>
+    </div>
+  </div>
+</div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Observer.min.js"></script>
-  <script>
-    gsap.registerPlugin(Observer);
+<!-- ── Waveform canvas ──────────────────────────────────────────────────── -->
+<canvas id="waveform"></canvas>
 
-    /* ─── Data ────────────────────────────────── */
-    const SECTIONS = [
-      {
-        id: 'story', logoOnly: true,
-        label: '', sub: '',
-        imgs: [],
-        logoSrc: './carousel/Frames/Story/Original%20Label%20logo.JPG',
-        href: './about/'
-      },
-      {
-        id: 'artists', label: 'ARTISTS', sub: 'The collective',
-        imgs: [
-          './carousel/Frames/Artists/abuekev.jpeg',
-          './carousel/Frames/Artists/Hotboxx-ps4.jpg',
-          './carousel/Frames/Artists/lxofc.png',
-          './carousel/Frames/Artists/sundaynoise.jpeg',
-        ],
-        href: './artists/'
-      },
-      {
-        id: 'releases', label: 'RELEASES', sub: '40+ records',
-        imgs: [
-          './carousel/Frames/Releases/001-%20Feel%20That.webp',
-          './carousel/Frames/Releases/Ginza.webp',
-          './carousel/Frames/Releases/Multi%20Verse.webp',
-          './carousel/Frames/Releases/Uno.webp',
-        ],
-        href: './releases/'
-      },
-      {
-        id: 'events', label: 'EVENTS', sub: 'Live & upcoming',
-        imgs: [
-          './carousel/Frames/Events/IMG_4812.JPEG',
-          './carousel/Frames/Events/IMG_4813.JPEG',
-          './carousel/Frames/Events/IMG_4814.JPEG',
-          './carousel/Frames/Events/IMG_4815.JPEG',
-          './carousel/Frames/Events/IMG_4816.JPEG',
-          './carousel/Frames/Events/IMG_4817.JPEG',
-          './carousel/Frames/Events/IMG_4818.JPEG',
-        ],
-        href: './events/'
-      },
-      {
-        id: 'contact', label: 'CONTACT', sub: 'Get in touch',
-        imgs: [],
-        href: './contact/'
-      },
+<!-- ── Player bar ─────────────────────────────────────────────────────────── -->
+<div id="player-bar">
+  <div class="pb-energy" id="pb-energy"></div>
+  <button class="pb-btn" id="pb-play">&#9654;</button>
+  <button class="pb-btn" id="pb-next">&#9654;&#9654;</button>
+  <div class="pb-track" id="pb-track">—</div>
+  <div class="pb-progress" id="pb-progress"><div class="pb-progress-fill" id="pb-fill"></div></div>
+</div>
+
+<!-- ── Section dots + scroll hint ───────────────────────────────────────────-->
+<div id="section-dots">
+  <div class="sect-dot active" data-idx="0"></div>
+  <div class="sect-dot" data-idx="1"></div>
+  <div class="sect-dot" data-idx="2"></div>
+  <div class="sect-dot" data-idx="3"></div>
+</div>
+<div id="scroll-hint">
+  <div class="scroll-hint-text">Scroll</div>
+  <div class="scroll-hint-line"></div>
+</div>
+
+<!-- ── Scroll space (creates scrollable height) ──────────────────────────── -->
+<div id="scroll-space"></div>
+
+<script>
+// ─── Background starfield (animated twinkle) ───────────────────────────────
+var bgCanvas = document.getElementById("bg");
+var bgCtx    = bgCanvas.getContext("2d");
+bgCanvas.width  = window.innerWidth;
+bgCanvas.height = window.innerHeight;
+
+var bgStars = [];
+for (var i = 0; i < 240; i++) {
+  bgStars.push({
+    x:     Math.random() * bgCanvas.width,
+    y:     Math.random() * bgCanvas.height,
+    r:     Math.random() * 1.3,
+    baseA: Math.random() * 0.5 + 0.1,
+    phase: Math.random() * 6.28,
+    freq:  Math.random() * 0.008 + 0.003,
+  });
+}
+
+var fxState = { cx: bgCanvas.width / 2, cy: bgCanvas.height / 2, strength: 0 };
+
+function drawBgStars(t, focusScreenX, focusScreenY, focusStrength) {
+  // Smooth lerp toward focus position
+  fxState.cx       += (focusScreenX  - fxState.cx)       * 0.06;
+  fxState.cy       += (focusScreenY  - fxState.cy)       * 0.06;
+  fxState.strength += (focusStrength - fxState.strength) * 0.05;
+
+  var ls = Math.max(0, fxState.strength);  // lens strength 0–1
+  var lx = fxState.cx;
+  var ly = fxState.cy;
+
+  bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+  // ── Lens inner glow — tight bright core, smoothstep falloff ─────────────
+  if (ls > 0.05) {
+    var coreGrad = bgCtx.createRadialGradient(lx, ly, 0, lx, ly, 90 * ls);
+    coreGrad.addColorStop(0,   "rgba(201,162,39," + (0.09 * ls).toFixed(4) + ")");
+    coreGrad.addColorStop(0.4, "rgba(201,162,39," + (0.03 * ls).toFixed(4) + ")");
+    coreGrad.addColorStop(1,   "rgba(201,162,39,0)");
+    bgCtx.beginPath();
+    bgCtx.arc(lx, ly, 90 * ls, 0, 6.283);
+    bgCtx.fillStyle = coreGrad;
+    bgCtx.fill();
+  }
+
+  // ── Lens rings — tighter falloff, higher contrast ────────────────────────
+  var numRings = 3;
+  for (var ri = 0; ri < numRings; ri++) {
+    var phase  = (t * 0.18 + ri * 0.55) % 1.0;
+    // Tighter: rings start smaller, fade faster (smoothstep-like)
+    var pEased = phase * phase * (3 - 2 * phase);
+    var ringR  = 55 + pEased * 220 * ls;
+    var ringA  = (1 - pEased) * 0.14 * ls;
+    if (ringA < 0.004) continue;
+    bgCtx.beginPath();
+    bgCtx.arc(lx, ly, ringR, 0, 6.283);
+    bgCtx.strokeStyle = "rgba(201,162,39," + ringA.toFixed(4) + ")";
+    bgCtx.lineWidth   = lerp(2.8, 0.3, pEased);
+    bgCtx.stroke();
+  }
+
+  // ── Radial gold streaks — 8 directions ──────────────────────────────────
+  var streakCount = 8;
+  for (var si = 0; si < streakCount; si++) {
+    var sAngle = (6.283 / streakCount) * si + t * 0.04;
+    var sLen   = (60 + 100 * ls) * (0.7 + 0.3 * Math.sin(t * 0.9 + si));
+    var sAlpha = ls * 0.07 * (0.6 + 0.4 * Math.sin(t * 1.1 + si * 1.3));
+    if (sAlpha < 0.003) continue;
+    var sx0 = lx + Math.cos(sAngle) * 20;
+    var sy0 = ly + Math.sin(sAngle) * 20;
+    var sx1 = lx + Math.cos(sAngle) * (20 + sLen);
+    var sy1 = ly + Math.sin(sAngle) * (20 + sLen);
+    var grad = bgCtx.createLinearGradient(sx0, sy0, sx1, sy1);
+    grad.addColorStop(0, "rgba(201,162,39," + sAlpha.toFixed(4) + ")");
+    grad.addColorStop(1, "rgba(201,162,39,0)");
+    bgCtx.beginPath();
+    bgCtx.moveTo(sx0, sy0);
+    bgCtx.lineTo(sx1, sy1);
+    bgCtx.strokeStyle = grad;
+    bgCtx.lineWidth   = 0.8;
+    bgCtx.stroke();
+  }
+
+  // ── Stars — gravitational lensing near front card ────────────────────────
+  for (var i = 0; i < bgStars.length; i++) {
+    var s   = bgStars[i];
+    var dx  = s.x - lx;
+    var dy  = s.y - ly;
+    var d2  = dx * dx + dy * dy;
+    var pull = Math.max(0, 1 - d2 / (300 * 300)) * ls * 0.6;
+    var drawX = s.x - dx * pull;
+    var drawY = s.y - dy * pull;
+    var a   = s.baseA * (0.6 + 0.4 * Math.sin(t * s.freq * 60 + s.phase));
+    // Stars near the lens are brightened
+    a = Math.min(1, a + pull * 0.6);
+    var r = s.r + pull * 1.2;
+    bgCtx.beginPath();
+    bgCtx.arc(drawX, drawY, r, 0, 6.283);
+    bgCtx.fillStyle = "rgba(255,255,255," + a.toFixed(3) + ")";
+    bgCtx.fill();
+  }
+}
+
+// ─── Config ────────────────────────────────────────────────────────────────
+var TWO_PI     = Math.PI * 2;
+var DIAM       = 340;
+var RADIUS_X   = 380;
+var TILT_Y     = 18;
+var FRICTION   = 0.93;
+var DRAG_SCALE = 0.006;
+var AUTO_DRIFT = 0.0005;
+var DRIFT_EASE = 0.018;
+
+function lerp(a, b, t) { t = Math.max(0, Math.min(1, t)); return a + (b - a) * t; }
+function normalizeAngle(a) { return ((a % TWO_PI) + TWO_PI) % TWO_PI - Math.PI; }
+
+// ─── Card definitions ──────────────────────────────────────────────────────
+var CARDS = [
+  { category:"RELEASES", count:"40+ RECORDS", artist:"Dagher (US)", track:"MultiVerse",
+    type:"space", planetC:["#1a5fcc","#0d3a8a","#071d4a"],
+    orbitC:"rgba(160,80,220,0.55)", nebulaC:"rgba(220,60,30,0.18)", accent:"#C9A227",
+    glowC:"rgba(100,50,210,0.75)", bgC:"rgba(100,50,210,0.07)" },
+  { category:"ARTISTS",  count:"24 ARTISTS",  artist:"",            track:"",
+    type:"portrait", accent:"#ffffff",
+    glowC:"rgba(255,140,80,0.65)",  bgC:"rgba(255,140,80,0.06)"  },
+  { category:"ORIGINALS",count:"12 TRACKS",   artist:"",            track:"",
+    type:"clean",   accent:"#aaaaaa",
+    glowC:"rgba(201,162,39,0.70)",  bgC:"rgba(201,162,39,0.07)"  },
+  { category:"CONTACT",  count:"GET IN TOUCH", artist:"",            track:"",
+    type:"nebula",  nebulaC:"rgba(120,50,240,0.35)", accent:"#a78bfa",
+    glowC:"rgba(140,60,255,0.70)",  bgC:"rgba(140,60,255,0.07)"  },
+  { category:"MIXES",    count:"30+ HOURS",   artist:"",            track:"",
+    type:"wave",    accent:"#50e3c2",
+    glowC:"rgba(80,227,194,0.65)",  bgC:"rgba(80,227,194,0.06)"  },
+  { category:"LABEL",    count:"SINCE 2019",  artist:"Original",    track:"Records",
+    type:"clean",   accent:"#C9A227",
+    glowC:"rgba(201,162,39,0.70)",  bgC:"rgba(201,162,39,0.07)"  },
+];
+
+// ─── Per-card animation state ──────────────────────────────────────────────
+function makeStars(n, diam) {
+  var arr = [];
+  for (var i = 0; i < n; i++) {
+    arr.push({
+      x:     Math.random() * diam,
+      y:     Math.random() * diam,
+      r:     Math.random() * 1.5,
+      baseA: Math.random() * 0.65 + 0.15,
+      phase: Math.random() * TWO_PI,
+      freq:  Math.random() * 0.025 + 0.008,
+    });
+  }
+  return arr;
+}
+
+var starCounts = { space:110, portrait:45, clean:22, nebula:95, wave:65 };
+
+var animState = CARDS.map(function(card) {
+  var ns = starCounts[card.type] || 40;
+  return {
+    stars:        makeStars(ns, DIAM),
+    orbitAngle:   Math.random() * TWO_PI,   // space: orbit ring rotation
+    planetPulse:  Math.random() * TWO_PI,   // space: shine pulse phase
+    sparkPhases:  [0,1,2,3].map(function() { return Math.random() * TWO_PI; }),
+    nebulaPhase:  Math.random() * TWO_PI,   // nebula: pulse phase
+    wavePhase:    0,                         // wave: scroll offset
+    bokeh:        (function() {              // portrait: floating bokeh
+      var b = [];
+      for (var i = 0; i < 12; i++) {
+        b.push({
+          x: Math.random() * DIAM, y: Math.random() * DIAM,
+          r: Math.random() * 18 + 6,
+          baseA: Math.random() * 0.09 + 0.02,
+          phase: Math.random() * TWO_PI,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.2,
+        });
+      }
+      return b;
+    }()),
+  };
+});
+
+// ─── Draw one card canvas ──────────────────────────────────────────────────
+var bgGrads = {
+  space:    ["#040c20", "#091a45", "#030816"],
+  portrait: ["#0c0808", "#1a0f10", "#070505"],
+  clean:    ["#0c0c0c", "#181818", "#080808"],
+  nebula:   ["#070510", "#0f0825", "#040310"],
+  wave:     ["#030f10", "#051a18", "#020a09"],
+};
+
+function drawCard(canvas, card, state, t) {
+  var cx = canvas.getContext("2d");
+  var w = DIAM, h = DIAM, hw = w / 2, hh = h / 2, r = w / 2;
+  cx.clearRect(0, 0, w, h);
+
+  cx.save();
+  cx.beginPath();
+  cx.arc(hw, hh, r, 0, TWO_PI);
+  cx.clip();
+
+  // Base radial gradient
+  var cols = bgGrads[card.type] || bgGrads.clean;
+  var bg = cx.createRadialGradient(hw, hh, 0, hw, hh, r);
+  bg.addColorStop(0,   cols[1]);
+  bg.addColorStop(0.6, cols[0]);
+  bg.addColorStop(1,   cols[2]);
+  cx.fillStyle = bg;
+  cx.fillRect(0, 0, w, h);
+
+  // ── Twinkling stars ────────────────────────────────────────────────────
+  var stars = state.stars;
+  for (var i = 0; i < stars.length; i++) {
+    var s = stars[i];
+    var a = s.baseA * (0.55 + 0.45 * Math.sin(t * s.freq * 60 + s.phase));
+    cx.beginPath();
+    cx.arc(s.x, s.y, s.r, 0, TWO_PI);
+    cx.fillStyle = "rgba(255,255,255," + a.toFixed(3) + ")";
+    cx.fill();
+  }
+
+  // ── SPACE ──────────────────────────────────────────────────────────────
+  if (card.type === "space") {
+    // Nebula glow (pulsing)
+    var nPulse = 0.7 + 0.3 * Math.sin(t * 0.8 + 1.2);
+    var nb = cx.createRadialGradient(w * 0.82, h * 0.2, 0, w * 0.82, h * 0.2, r * 0.55 * nPulse);
+    nb.addColorStop(0, card.nebulaC);
+    nb.addColorStop(1, "transparent");
+    cx.fillStyle = nb;
+    cx.fillRect(0, 0, w, h);
+
+    // Asteroids (slowly rotating)
+    var a1rot = t * 0.4;
+    cx.save();
+    cx.translate(w * 0.22, h * 0.24);
+    cx.rotate(a1rot);
+    cx.beginPath();
+    cx.ellipse(0, 0, 10, 7, 0, 0, TWO_PI);
+    cx.fillStyle = "rgba(180,120,60,0.85)";
+    cx.fill();
+    cx.restore();
+
+    cx.save();
+    cx.translate(w * 0.75, h * 0.72);
+    cx.rotate(-t * 0.3);
+    cx.beginPath();
+    cx.ellipse(0, 0, 7, 5, 0, 0, TWO_PI);
+    cx.fillStyle = "rgba(160,100,50,0.7)";
+    cx.fill();
+    cx.restore();
+
+    // Planet
+    var pr = r * 0.42;
+    var shineX = hw - pr * 0.25 + Math.cos(t * 0.5 + state.planetPulse) * pr * 0.08;
+    var shineY = hh - pr * 0.25 + Math.sin(t * 0.5 + state.planetPulse) * pr * 0.06;
+    var pg = cx.createRadialGradient(shineX, shineY, 0, hw, hh, pr);
+    pg.addColorStop(0,   card.planetC[0]);
+    pg.addColorStop(0.5, card.planetC[1]);
+    pg.addColorStop(1,   card.planetC[2]);
+    cx.beginPath();
+    cx.arc(hw, hh, pr, 0, TWO_PI);
+    cx.fillStyle = pg;
+    cx.fill();
+
+    // Planet shine rim
+    var shine = cx.createRadialGradient(shineX, shineY, 0, hw, hh, pr);
+    shine.addColorStop(0,   "rgba(255,255,255," + (0.14 + 0.08 * Math.sin(t * 0.6)).toFixed(3) + ")");
+    shine.addColorStop(0.4, "transparent");
+    cx.beginPath();
+    cx.arc(hw, hh, pr, 0, TWO_PI);
+    cx.fillStyle = shine;
+    cx.fill();
+
+    // ── Saturn-style ring (fixed tilt, planet rotates on axis) ────────────
+    state.orbitAngle += 0.006;
+    var ringRadX = pr * 1.65;
+    var ringRadY = pr * 0.40;
+    var ringTilt = -0.22;          // fixed — never changes
+    var dotAngle = state.orbitAngle;
+    var dotX     = Math.cos(dotAngle) * ringRadX;
+    var dotY     = Math.sin(dotAngle) * ringRadY;
+    var dotNormA = ((dotAngle % TWO_PI) + TWO_PI) % TWO_PI;
+    var dotBehind = dotNormA > Math.PI; // true = dot is on back half
+
+    // 1. Back half of ring (behind planet)
+    cx.save();
+    cx.translate(hw, hh);
+    cx.rotate(ringTilt);
+    cx.globalAlpha = 0.45;
+    cx.beginPath();
+    cx.ellipse(0, 0, ringRadX, ringRadY, 0, Math.PI, TWO_PI);
+    cx.strokeStyle = card.orbitC;
+    cx.lineWidth = 2.5;
+    cx.stroke();
+    cx.globalAlpha = 1;
+    if (dotBehind) {
+      cx.beginPath();
+      cx.arc(dotX, dotY, 3.5, 0, TWO_PI);
+      cx.fillStyle = "rgba(200,150,255,0.85)";
+      cx.fill();
+    }
+    cx.restore();
+
+    // 2. Planet — animated rotating atmosphere bands
+    cx.save();
+    cx.beginPath();
+    cx.arc(hw, hh, pr, 0, TWO_PI);
+    cx.clip();
+    // Re-draw planet gradient over clip (bands scroll on top)
+    var pg2 = cx.createRadialGradient(shineX, shineY, 0, hw, hh, pr);
+    pg2.addColorStop(0,   card.planetC[0]);
+    pg2.addColorStop(0.5, card.planetC[1]);
+    pg2.addColorStop(1,   card.planetC[2]);
+    cx.fillStyle = pg2;
+    cx.fillRect(hw - pr - 1, hh - pr - 1, pr * 2 + 2, pr * 2 + 2);
+    // Atmospheric band scroll
+    var bandOffset = (state.orbitAngle * 28) % (pr * 2);
+    for (var bi2 = -1; bi2 < 5; bi2++) {
+      var bandY = hh - pr + bandOffset + bi2 * (pr * 0.42);
+      var bandA = 0.055 + 0.03 * Math.sin(bi2 * 1.7 + state.orbitAngle * 0.5);
+      cx.fillStyle = "rgba(255,255,255," + bandA.toFixed(3) + ")";
+      cx.fillRect(hw - pr, bandY, pr * 2, pr * 0.18);
+    }
+    cx.restore();
+
+    // Re-draw shine on planet
+    var shine2 = cx.createRadialGradient(shineX, shineY, 0, hw, hh, pr);
+    shine2.addColorStop(0,   "rgba(255,255,255," + (0.14 + 0.08 * Math.sin(t * 0.6)).toFixed(3) + ")");
+    shine2.addColorStop(0.4, "transparent");
+    cx.beginPath();
+    cx.arc(hw, hh, pr, 0, TWO_PI);
+    cx.fillStyle = shine2;
+    cx.fill();
+
+    // 3. Front half of ring (in front of planet)
+    cx.save();
+    cx.translate(hw, hh);
+    cx.rotate(ringTilt);
+    cx.beginPath();
+    cx.ellipse(0, 0, ringRadX, ringRadY, 0, 0, Math.PI);
+    cx.strokeStyle = card.orbitC;
+    cx.lineWidth = 2.5;
+    cx.stroke();
+    if (!dotBehind) {
+      cx.beginPath();
+      cx.arc(dotX, dotY, 3.5, 0, TWO_PI);
+      cx.fillStyle = "rgba(200,150,255,0.95)";
+      cx.fill();
+    }
+    cx.restore();
+
+    // Sparkles (pulsing)
+    var sparkPos = [[w*0.78,h*0.28],[w*0.18,h*0.65],[w*0.62,h*0.14],[w*0.30,h*0.80]];
+    sparkPos.forEach(function(pos, si) {
+      var sp = 0.5 + 0.5 * Math.abs(Math.sin(t * 1.2 + state.sparkPhases[si]));
+      var sz = 4 + sp * 5;
+      cx.save();
+      cx.globalAlpha = 0.4 + sp * 0.6;
+      cx.strokeStyle = "#C9A227";
+      cx.lineWidth = 1.5;
+      cx.beginPath(); cx.moveTo(pos[0]-sz, pos[1]); cx.lineTo(pos[0]+sz, pos[1]); cx.stroke();
+      cx.beginPath(); cx.moveTo(pos[0], pos[1]-sz); cx.lineTo(pos[0], pos[1]+sz); cx.stroke();
+      cx.restore();
+    });
+  }
+
+  // ── PORTRAIT ───────────────────────────────────────────────────────────
+  if (card.type === "portrait") {
+    // Drifting bokeh
+    for (var bi = 0; bi < state.bokeh.length; bi++) {
+      var bk = state.bokeh[bi];
+      bk.x += bk.vx;
+      bk.y += bk.vy;
+      if (bk.x < -bk.r) bk.x = DIAM + bk.r;
+      if (bk.x > DIAM + bk.r) bk.x = -bk.r;
+      if (bk.y < -bk.r) bk.y = DIAM + bk.r;
+      if (bk.y > DIAM + bk.r) bk.y = -bk.r;
+      var ba = bk.baseA * (0.5 + 0.5 * Math.sin(t * 0.8 + bk.phase));
+      var bg2 = cx.createRadialGradient(bk.x, bk.y, 0, bk.x, bk.y, bk.r);
+      bg2.addColorStop(0, "rgba(255,200,180," + ba.toFixed(3) + ")");
+      bg2.addColorStop(1, "transparent");
+      cx.fillStyle = bg2;
+      cx.fillRect(Math.max(0,bk.x-bk.r), Math.max(0,bk.y-bk.r), bk.r*2, bk.r*2);
+    }
+    // Warm vignette
+    var vg = cx.createRadialGradient(hw, hh, 0, hw, hh, r);
+    vg.addColorStop(0, "rgba(50,15,15,0.35)");
+    vg.addColorStop(0.7, "transparent");
+    vg.addColorStop(1, "rgba(0,0,0,0.7)");
+    cx.fillStyle = vg;
+    cx.fillRect(0, 0, w, h);
+  }
+
+  // ── NEBULA ─────────────────────────────────────────────────────────────
+  if (card.type === "nebula") {
+    state.nebulaPhase += 0.005;
+    var np = 0.6 + 0.4 * Math.sin(state.nebulaPhase);
+    var nx = hw + Math.cos(state.nebulaPhase * 0.4) * 20;
+    var ny = hh + Math.sin(state.nebulaPhase * 0.3) * 15;
+    var nb3 = cx.createRadialGradient(nx, ny, 0, nx, ny, r * 0.8 * np);
+    nb3.addColorStop(0, "rgba(120,50,240," + (0.3 * np).toFixed(3) + ")");
+    nb3.addColorStop(0.4, "rgba(60,20,140," + (0.15 * np).toFixed(3) + ")");
+    nb3.addColorStop(1, "transparent");
+    cx.fillStyle = nb3;
+    cx.fillRect(0, 0, w, h);
+
+    // Second nebula layer offset
+    var nx2 = hw + Math.cos(state.nebulaPhase * 0.5 + 2) * 30;
+    var ny2 = hh + Math.sin(state.nebulaPhase * 0.4 + 1) * 25;
+    var nb4 = cx.createRadialGradient(nx2, ny2, 0, nx2, ny2, r * 0.5);
+    nb4.addColorStop(0, "rgba(180,80,255,0.12)");
+    nb4.addColorStop(1, "transparent");
+    cx.fillStyle = nb4;
+    cx.fillRect(0, 0, w, h);
+  }
+
+  // ── WAVE ───────────────────────────────────────────────────────────────
+  if (card.type === "wave") {
+    state.wavePhase += 0.018;
+    cx.save();
+    for (var wi = 0; wi < 5; wi++) {
+      var wAlpha = (0.12 + wi * 0.04) * (0.7 + 0.3 * Math.sin(t * 0.6 + wi));
+      cx.strokeStyle = "rgba(80,227,194," + wAlpha.toFixed(3) + ")";
+      cx.lineWidth = 1.5;
+      cx.beginPath();
+      for (var wx = 0; wx <= w; wx += 3) {
+        var wy = hh + Math.sin((wx / w) * Math.PI * 3 + state.wavePhase + wi * 0.9) * (18 + wi * 14);
+        if (wx === 0) cx.moveTo(wx, wy); else cx.lineTo(wx, wy);
+      }
+      cx.stroke();
+    }
+    cx.restore();
+  }
+
+  // ── CLEAN ──────────────────────────────────────────────────────────────
+  if (card.type === "clean") {
+    var cp = 0.5 + 0.5 * Math.sin(t * 0.4 + state.nebulaPhase);
+    var cg = cx.createRadialGradient(hw, hh, 0, hw, hh, r * 0.6);
+    cg.addColorStop(0, "rgba(201,162,39," + (0.04 * cp).toFixed(4) + ")");
+    cg.addColorStop(1, "transparent");
+    cx.fillStyle = cg;
+    cx.fillRect(0, 0, w, h);
+  }
+
+  // Dark vignette ring (all cards)
+  var vign = cx.createRadialGradient(hw, hh, r * 0.5, hw, hh, r);
+  vign.addColorStop(0, "transparent");
+  vign.addColorStop(1, "rgba(0,0,0,0.65)");
+  cx.fillStyle = vign;
+  cx.fillRect(0, 0, w, h);
+
+  cx.restore();
+}
+
+// ─── Build DOM ────────────────────────────────────────────────────────────
+var stage = document.getElementById("stage");
+stage.style.cssText = "position:relative;width:100%;max-width:1100px;height:620px;z-index:1;";
+
+var container = document.createElement("div");
+container.style.cssText = [
+  "position:absolute","inset:0",
+  "cursor:grab","user-select:none",
+  "overflow:visible","perspective:1400px",
+].join(";");
+stage.appendChild(container);
+
+var glow = document.createElement("div");
+glow.style.cssText = [
+  "position:absolute","inset:0",
+  "background:radial-gradient(ellipse 50% 30% at 50% 50%, rgba(201,162,39,0.04) 0%, transparent 70%)",
+  "pointer-events:none",
+].join(";");
+container.appendChild(glow);
+
+var origin = document.createElement("div");
+origin.style.cssText = "position:absolute;top:0;left:0;width:0;height:0;";
+container.appendChild(origin);
+
+var n = CARDS.length;
+var baseAngles = CARDS.map(function(_, i) { return (TWO_PI / n) * i; });
+
+// ─── Mouse tracking for depth parallax + refraction CSS vars ──────────────
+var mouseNX = 0, mouseNY = 0;
+window.addEventListener("mousemove", function(e) {
+  mouseNX = (e.clientX / window.innerWidth  - 0.5) * 2;
+  mouseNY = (e.clientY / window.innerHeight - 0.5) * 2;
+  document.documentElement.style.setProperty("--mx", (e.clientX / window.innerWidth  * 100).toFixed(1) + "%");
+  document.documentElement.style.setProperty("--my", (e.clientY / window.innerHeight * 100).toFixed(1) + "%");
+});
+
+// ─── Atmospheric glow halos (behind cards in DOM) ─────────────────────────
+var GLOW_SZ = DIAM * 1.9;
+var cardGlows = CARDS.map(function(card) {
+  var g = document.createElement("div");
+  g.style.cssText = [
+    "position:absolute","top:0","left:0",
+    "width:" + GLOW_SZ + "px","height:" + GLOW_SZ + "px",
+    "border-radius:50%","pointer-events:none",
+    "mix-blend-mode:screen",
+    "background:radial-gradient(circle, " + card.glowC + " 0%, transparent 65%)",
+    "filter:blur(44px)","opacity:0",
+    "will-change:transform,opacity","z-index:0",
+  ].join(";");
+  origin.appendChild(g);
+  return g;
+});
+
+// Build card DOM + collect canvas refs
+var cardCanvases = [];
+var logoCoreEl   = null;  // LABEL card glass orb — updated each frame
+var cardEls = CARDS.map(function(card, idx) {
+  var wrap = document.createElement("div");
+  wrap.style.cssText = [
+    "position:absolute","top:0","left:0",
+    "width:" + DIAM + "px","height:" + DIAM + "px",
+    "border-radius:50%",
+    "will-change:transform,opacity,filter",
+    "transform-style:preserve-3d",
+    "overflow:hidden",
+    "cursor:pointer",
+    "background:rgba(255,255,255,0.04)",
+    "border:1px solid rgba(255,255,255,0.11)",
+    "box-shadow:inset 0 0 24px rgba(255,255,255,0.05),0 24px 64px rgba(0,0,0,0.50)",
+    "backdrop-filter:blur(28px) saturate(160%)",
+    "-webkit-backdrop-filter:blur(28px) saturate(160%)",
+  ].join(";");
+
+  var cv = document.createElement("canvas");
+  cv.width = DIAM; cv.height = DIAM;
+  cv.style.cssText = "position:absolute;inset:0;border-radius:50%;";
+  wrap.appendChild(cv);
+  cardCanvases.push(cv);
+
+  // ARTISTS card — slideshow hero background (4 stacked imgs, one active at a time)
+  if (idx === 1) {
+    var artistSlides = [
+      "carousel/Frames/Artists/abuekev.jpeg",
+      "carousel/Frames/Artists/Hotboxx-ps4.jpg",
+      "carousel/Frames/Artists/lxofc.png",
+      "carousel/Frames/Artists/sundaynoise.jpeg",
     ];
+    var ssImgs = artistSlides.map(function(src, si) {
+      var img = document.createElement("img");
+      img.src = src;
+      img.style.cssText = [
+        "position:absolute","inset:0","width:100%","height:100%",
+        "object-fit:cover","border-radius:50%",
+        "opacity:" + (si === 0 ? "0.55" : "0"),
+        "transition:opacity 1.4s ease",
+        "z-index:1","pointer-events:none",
+      ].join(";");
+      wrap.appendChild(img);
+      return img;
+    });
+    var ssCur = 0;
+    setInterval(function() {
+      ssImgs[ssCur].style.opacity = "0";
+      ssCur = (ssCur + 1) % ssImgs.length;
+      ssImgs[ssCur].style.opacity = "0.55";
+    }, 3200);
+  }
 
-    const TOTAL = SECTIONS.length;
-    let cur = 2; // start center
+  // CONTACT card — video hero background
+  if (idx === 3) {
+    var vid = document.createElement("video");
+    vid.src = "carousel/Frames/Contact/Whisk_gdm2qdojljm2ydz20yyzktytqtojrtlhj2nz0co.mp4";
+    vid.autoplay    = true;
+    vid.loop        = true;
+    vid.muted       = true;
+    vid.playsInline = true;
+    vid.style.cssText = [
+      "position:absolute","inset:0",
+      "width:100%","height:100%",
+      "object-fit:cover",
+      "border-radius:50%",
+      "opacity:0.55",
+      "z-index:1",
+      "pointer-events:none",
+    ].join(";");
+    wrap.appendChild(vid);
+  }
 
-    /* ─── Layout ──────────────────────────────── */
-    let VW, VH, CIRCLE_D, GAP, STEP, CIRCLE_TOP;
+  // Edge highlight — glass refraction streak
+  var edgeHL = document.createElement("div");
+  edgeHL.style.cssText = [
+    "position:absolute","inset:0","border-radius:50%","pointer-events:none",
+    "background:linear-gradient(118deg,transparent 28%,rgba(255,255,255,0.13) 48%,transparent 68%)",
+    "opacity:0.18","z-index:4",
+  ].join(";");
+  wrap.appendChild(edgeHL);
 
-    function calcLayout() {
-      VW = window.innerWidth;
-      VH = window.innerHeight;
-      CIRCLE_D = Math.min(VW * 0.442, VH * 0.629, 629);
-      GAP  = Math.min(VW * 0.05, 80);
-      STEP = CIRCLE_D + GAP;
-      CIRCLE_TOP = (VH - CIRCLE_D) / 2;
+  // Rim — gold pulse (same character as nav buttons, more minimal)
+  var rim = document.createElement("div");
+  rim.className = "card-rim";
+  rim.style.animationDelay    = (idx * -1.4) + "s";
+  rim.style.animationDuration = "4s";
+  wrap.appendChild(rim);
+
+  // Cinematic orbit rings — planetary feel
+  var or1 = document.createElement("div");
+  or1.className = "orbit-ring";
+  or1.style.animationDelay = (idx * -3.2) + "s";
+  wrap.appendChild(or1);
+  var or2 = document.createElement("div");
+  or2.className = "orbit-ring ring-2";
+  or2.style.animationDelay = (idx * -4.8) + "s";
+  wrap.appendChild(or2);
+
+  // Inner concentric rings — watch-face depth
+  [0.78, 0.60].forEach(function(frac, ri) {
+    var ir = document.createElement("div");
+    ir.className = "card-inner-ring";
+    var sz = DIAM * frac;
+    ir.style.width   = sz + "px";
+    ir.style.height  = sz + "px";
+    ir.style.opacity = ri === 0 ? "1" : "0.5";
+    wrap.appendChild(ir);
+  });
+
+  // Metallic sweep shimmer
+  var shine = document.createElement("div");
+  shine.className = "card-shine";
+  shine.style.animationName           = idx % 2 === 0 ? "cardSweep" : "cardSweepB";
+  shine.style.animationDuration       = (11 + idx * 1.8) + "s";
+  shine.style.animationTimingFunction = "ease-in-out";
+  shine.style.animationIterationCount = "infinite";
+  wrap.appendChild(shine);
+
+  // Content layer
+  var content = document.createElement("div");
+  content.style.cssText = [
+    "position:absolute","inset:0","border-radius:50%",
+    "display:flex","flex-direction:column",
+    "align-items:center","justify-content:center",
+    "text-align:center","padding:30px","pointer-events:none",
+  ].join(";");
+
+  // Top block: artist + divider + track
+  if (card.artist) {
+    var topText = document.createElement("div");
+    topText.style.cssText = "position:absolute;top:21%;left:0;right:0;text-align:center;";
+    var artistEl = document.createElement("div");
+    artistEl.textContent = card.artist.toUpperCase();
+    artistEl.style.cssText = [
+      "font-size:9px","font-weight:700","letter-spacing:0.20em",
+      "color:rgba(255,255,255,0.62)",
+      "text-shadow:0 0 10px rgba(201,162,39,0.35)",
+    ].join(";");
+    topText.appendChild(artistEl);
+    if (card.track) {
+      var divider = document.createElement("div");
+      divider.style.cssText = "width:20px;height:1px;background:rgba(201,162,39,0.5);margin:5px auto 5px;";
+      topText.appendChild(divider);
+      var trackEl = document.createElement("div");
+      trackEl.textContent = card.track;
+      trackEl.style.cssText = "font-size:9px;font-style:italic;color:rgba(255,255,255,0.35);letter-spacing:0.06em;";
+      topText.appendChild(trackEl);
     }
+    content.appendChild(topText);
+  }
 
-    function posX(itemIdx, activeIdx) {
-      return (VW - CIRCLE_D) / 2 + (itemIdx - activeIdx) * STEP;
-    }
+  // LABEL card — logo glass orb (energy-reactive, orbiting)
+  if (idx === 5) {
+    logoCoreEl = document.createElement("div");
+    logoCoreEl.className = "logo-core";
+    var cardLogo = document.createElement("img");
+    cardLogo.src = "carousel/Frames/Story/Original Label logo.png";
+    cardLogo.className = "logo-img";
+    logoCoreEl.appendChild(cardLogo);
+    content.appendChild(logoCoreEl);
+  }
 
-    function opacityFor(dist) {
-      if (dist === 0) return 1;
-      if (dist === 1) return 0.42;
-      return 0;
-    }
+  // Center category — bold, gold-lit shadow
+  var catEl = document.createElement("div");
+  catEl.textContent = card.category;
+  catEl.style.cssText = [
+    "font-size:28px","font-weight:800","color:#fff","letter-spacing:0.06em","line-height:1",
+    "text-shadow:0 0 30px rgba(0,0,0,0.95), 0 0 55px rgba(201,162,39,0.18)",
+  ].join(";");
+  content.appendChild(catEl);
 
-    function scaleFor(dist) {
-      if (dist === 0) return 1;
-      if (dist === 1) return 0.84;
-      return 0.7;
-    }
+  // Gold rule
+  var rule = document.createElement("div");
+  rule.style.cssText = "width:26px;height:1px;background:rgba(201,162,39,0.55);margin:9px auto 0;";
+  content.appendChild(rule);
 
-    function blurFor(dist) {
-      if (dist === 0) return 0;
-      if (dist === 1) return 5;
-      return 14;
-    }
+  // Count
+  var countEl = document.createElement("div");
+  countEl.textContent = card.count;
+  countEl.style.cssText = [
+    "font-size:9px","color:rgba(255,255,255,0.28)",
+    "letter-spacing:0.22em","text-transform:uppercase","margin-top:6px",
+  ].join(";");
+  content.appendChild(countEl);
 
-    /* ─── Build DOM ───────────────────────────── */
-    calcLayout();
+  // Bottom: ORIGINAL LABEL — gold, no border
+  var label = document.createElement("div");
+  label.textContent = "ORIGINAL LABEL";
+  label.style.cssText = [
+    "position:absolute","bottom:21%","left:50%","transform:translateX(-50%)",
+    "font-size:8px","font-weight:700","letter-spacing:0.28em",
+    "color:rgba(201,162,39,0.60)","white-space:nowrap",
+    "text-shadow:0 0 8px rgba(201,162,39,0.25)",
+  ].join(";");
+  content.appendChild(label);
 
-    const stage     = document.getElementById('stage');
-    const dotsEl    = document.getElementById('dots');
-    const counterEl = document.getElementById('counter');
-    const DPR       = window.devicePixelRatio || 1;
-    const WAVE_W    = 180;
-    const WAVE_H    = 34;
+  wrap.appendChild(content);
+  origin.appendChild(wrap);
+  return wrap;
+});
 
-    SECTIONS.forEach((s, i) => {
-      const dist = Math.abs(i - cur);
-      const el = document.createElement('div');
-      el.className = 'c-item' + (i === cur ? ' active' : '');
-      el.dataset.idx = i;
-      el.dataset.id  = s.id;
-      el.style.cssText = `
-        width:${CIRCLE_D}px; height:${CIRCLE_D}px;
-        top:${CIRCLE_TOP}px; left:${posX(i, cur)}px;
-        opacity:${opacityFor(dist)};
-        transform:scale(${scaleFor(dist)});
-        filter:blur(${blurFor(dist)}px);
-      `;
+// ─── Carousel state ────────────────────────────────────────────────────────
+var rotation        = Math.PI;
+var velocity        = AUTO_DRIFT;
+var dragActive      = false;
+var dragLastX       = 0;
+var dragSamples     = [0, 0, 0];
+var snapTarget      = null;
+var scrollSnapTimer = null;
+var SEGMENT         = TWO_PI / n;
+var sectionIndex    = 0;
 
-      // Slides or logo
-      let innerHtml = '';
+// Energy lock — spikes with velocity, drives glow/lens intensity
+var energyLevel = 1.0;
 
-      if (s.logoOnly) {
-        // Dark base + text logo (transparent, no JPG)
-        innerHtml += `<div class="c-slide" style="background:#080808;opacity:1"></div>`;
-        innerHtml += `
-          <div class="c-logo-text">
-            <div class="c-logo-text-main">ORIGINAL LABEL</div>
-            <div class="c-logo-text-divider"></div>
-            <div class="c-logo-text-sub">Est. 2012 — Miami</div>
-          </div>`;
-      } else if (s.imgs.length === 0) {
-        innerHtml += `<div class="c-slide fallback" style="opacity:1"></div>`;
+// Per-card world colors (RGB, matches bgC in CARDS) for smooth halo transitions
+var CARD_RGB = [
+  [100,  50, 210],   // RELEASES — deep purple
+  [255, 140,  80],   // ARTISTS  — ember orange
+  [201, 162,  39],   // ORIGINALS — gold
+  [140,  60, 255],   // CONTACT  — violet
+  [ 80, 227, 194],   // MIXES    — teal
+  [201, 162,  39],   // LABEL    — gold
+];
+var glowR = CARD_RGB[0][0], glowG = CARD_RGB[0][1], glowB = CARD_RGB[0][2];
+
+// Smooth background focus tracking — cinematic camera lock
+var focusX = 50.0, focusY = 50.0;  // percentage
+
+
+function snapToNearest() {
+  snapTarget = Math.round(rotation / SEGMENT) * SEGMENT;
+}
+
+function snapToCard(cardIdx) {
+  var ideal = -baseAngles[cardIdx];
+  var diff  = ((ideal - rotation) % TWO_PI + TWO_PI) % TWO_PI;
+  if (diff > Math.PI) diff -= TWO_PI;
+  snapTarget = rotation + diff;
+}
+
+function getOrbitCenter() {
+  // Logo now follows the front card — use stage center for stable orbit physics
+  var stageRect = stage.getBoundingClientRect();
+  return { x: stageRect.width / 2, y: stageRect.height / 2 };
+}
+
+function updateCards() {
+  var center = getOrbitCenter();
+  var pullStrength = 0.10;
+
+  for (var i = 0; i < n; i++) {
+    var el         = cardEls[i];
+    var worldAngle = baseAngles[i] + rotation;
+    var norm       = normalizeAngle(worldAngle);
+    var depth      = Math.cos(norm);
+    var t2         = (depth + 1) / 2;
+    var tSoft      = Math.pow(t2, 1.5);
+
+    var ox0 = Math.sin(worldAngle) * RADIUS_X;
+    var oy0 = -Math.cos(worldAngle) * TILT_Y;
+
+    // Gravity center — side cards "fall into" center proportional to distance from front
+    var centerPull = 0.15;
+    ox0 *= (1 - centerPull * (1 - t2));
+    oy0 *= (1 - centerPull * (1 - t2));
+
+    // Mouse parallax — front cards shift more
+    var px = mouseNX * tSoft * 24;
+    var py = mouseNY * tSoft * 12;
+
+    // Depth separation — wider spread creates true "layers in space" feeling
+    var scale   = lerp(0.44, 1.18, tSoft);
+    var opacity = lerp(0.15, 1.0,  tSoft);
+    var blur    = lerp(14,   0,    tSoft);
+    var zIdx    = Math.round(tSoft * 100);
+    var rotateY = -Math.sin(norm) * 18;
+
+    var fx = center.x + ox0 + px - DIAM / 2;
+    var fy = center.y + oy0 + py - DIAM / 2;
+
+    el.style.transform =
+      "translate(" + fx.toFixed(1) + "px," + fy.toFixed(1) + "px) " +
+      "scale(" + scale.toFixed(4) + ") " +
+      "rotateY(" + rotateY.toFixed(2) + "deg)";
+    el.style.opacity = opacity.toFixed(4);
+    el.style.filter  = blur > 0.4 ? "blur(" + blur.toFixed(2) + "px)" : "none";
+    el.style.zIndex  = String(zIdx);
+
+    // Atmospheric glow halo
+    var gx = center.x + ox0 + px - GLOW_SZ / 2;
+    var gy = center.y + oy0 + py - GLOW_SZ / 2;
+    cardGlows[i].style.transform = "translate(" + gx.toFixed(1) + "px," + gy.toFixed(1) + "px)";
+    cardGlows[i].style.opacity   = Math.min(1, tSoft * tSoft * 0.70 * energyLevel).toFixed(3);
+  }
+}
+
+// ─── Cinematic: energy-reactive logo orb ───────────────────────────────────
+function updateLogo(t) {
+  if (!logoCoreEl) return;
+  var e   = energyLevel;
+  var sc  = 1 + (e - 0.6) * 0.06;
+  var gR  = ((e - 0.6) * 44 + 28).toFixed(1);
+  var gR2 = ((e - 0.6) * 95 + 55).toFixed(0);
+  var ox  = (Math.sin(t * 0.62) * 3.8).toFixed(2);
+  var oy  = (Math.cos(t * 0.62) * 3.8).toFixed(2);
+  logoCoreEl.style.transform =
+    "translate(" + ox + "px," + oy + "px) scale(" + sc.toFixed(4) + ")";
+  logoCoreEl.style.boxShadow =
+    "inset 0 0 40px rgba(255,255,255,0.06)," +
+    "0 0 " + gR + "px rgba(255,200,80,0.28)," +
+    "0 0 " + gR2 + "px rgba(255,200,80,0.08)";
+}
+
+// ─── Main loop ─────────────────────────────────────────────────────────────
+function animate(ts) {
+  var t = ts / 1000; // seconds
+
+  // Carousel physics
+  if (!dragActive) {
+    if (snapTarget !== null) {
+      // Magnetic snap — smooth lerp toward nearest slot
+      rotation = lerp(rotation, snapTarget, 0.09);
+      velocity = 0;
+      if (Math.abs(rotation - snapTarget) < 0.0008) {
+        rotation   = snapTarget;
+        snapTarget = null;
+        velocity   = AUTO_DRIFT; // resume drift after snap settles
+        cinematicCut();
+      }
+    } else {
+      if (Math.abs(velocity) < AUTO_DRIFT * 2) {
+        velocity = lerp(velocity, AUTO_DRIFT, DRIFT_EASE);
       } else {
-        s.imgs.forEach((src, si) => {
-          innerHtml += `<div class="c-slide" style="background-image:url('${src}');opacity:${si === 0 ? 1 : 0}"></div>`;
-        });
+        velocity *= FRICTION;
       }
+      // Signature drift — carousel subtly breathes even when idle
+      rotation += velocity + Math.sin(t * 0.4) * 0.00018;
+    }
+  }
+  // ── Energy lock — velocity spikes charge the field ───────────────────────
+  var rawEnergy = 0.6 + Math.min(Math.abs(velocity) * 200, 2.2);
+  energyLevel  += (rawEnergy - energyLevel) * 0.07;
 
-      // Overlay + animated SVG ring + shimmer
-      innerHtml += `<div class="c-overlay"></div>
-      <svg class="c-ring-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <circle class="c-ring-track" cx="50" cy="50" r="48"/>
-        <circle class="c-ring-arc1"  cx="50" cy="50" r="48"/>
-        <circle class="c-ring-arc2"  cx="50" cy="50" r="48"/>
-      </svg>
-      <div class="c-shimmer"></div>`;
+  updateCards();
 
-      // Content — only show label/sub for non-logoOnly sections
-      if (!s.logoOnly) {
-        innerHtml += `
-          <div class="c-content">
-            <span class="c-num">0${i + 1}</span>
-            <h2 class="c-label">${s.label}</h2>
-            <p class="c-sub">${s.sub}</p>
-          </div>`;
-      }
+  // Background integration — ambient glow tracks front card color
+  var maxTS2 = 0, frontIdx = 0;
+  for (var k = 0; k < n; k++) {
+    var wa2 = baseAngles[k] + rotation;
+    var ts2 = Math.pow((Math.cos(normalizeAngle(wa2)) + 1) / 2, 1.5);
+    if (ts2 > maxTS2) { maxTS2 = ts2; frontIdx = k; }
+  }
+  // Glow position — cinematic smooth lock (lerp toward target, no jitter)
+  var frontEl  = cardEls[frontIdx];
+  var fRect    = frontEl.getBoundingClientRect();
+  var sRect    = stage.getBoundingClientRect();
+  var targetFX = (fRect.left + fRect.width  / 2 - sRect.left) / sRect.width  * 100;
+  var targetFY = (fRect.top  + fRect.height / 2 - sRect.top)  / sRect.height * 100;
+  focusX += (targetFX - focusX) * 0.08;
+  focusY += (targetFY - focusY) * 0.08;
 
-      // Slide dots
-      if (!s.logoOnly && s.imgs.length > 1) {
-        let dots = `<div class="c-slide-dots">`;
-        s.imgs.forEach((_, si) => {
-          dots += `<div class="c-sdot${si === 0 ? ' on' : ''}"></div>`;
-        });
-        dots += `</div>`;
-        innerHtml += dots;
-      }
+  var glowX = focusX.toFixed(2);
+  var glowY = focusY.toFixed(2);
 
-      el.innerHTML = innerHtml;
-      stage.appendChild(el);
+  // Color halo — smooth RGB lerp toward front card's world color, energy-scaled alpha
+  var tRGB = CARD_RGB[frontIdx];
+  glowR += (tRGB[0] - glowR) * 0.035;
+  glowG += (tRGB[1] - glowG) * 0.035;
+  glowB += (tRGB[2] - glowB) * 0.035;
+  var haloA = (0.07 + Math.min(energyLevel - 0.6, 0.8) * 0.055).toFixed(3);
+  glow.style.background = "radial-gradient(ellipse 66% 54% at " + glowX + "% " + glowY +
+    "%, rgba(" + glowR.toFixed(0) + "," + glowG.toFixed(0) + "," + glowB.toFixed(0) +
+    "," + haloA + ") 0%, transparent 70%)";
 
-      const dot = document.createElement('div');
-      dot.className = 'dot' + (i === cur ? ' active' : '');
-      dotsEl.appendChild(dot);
+  // Animate all card canvases
+  for (var i = 0; i < CARDS.length; i++) {
+    drawCard(cardCanvases[i], CARDS[i], animState[i], t);
+  }
+
+  // Animate background stars — pass front card screen coords for lens effect
+  drawBgStars(t, fRect.left + fRect.width / 2, fRect.top + fRect.height / 2, maxTS2 * energyLevel);
+
+  // Cinematic scene drift — slow camera breathing
+  stage.style.transform =
+    "translate(" + (Math.sin(t * 0.28) * 5).toFixed(2) + "px," +
+                   (Math.cos(t * 0.22) * 3.5).toFixed(2) + "px)";
+
+  // Active card refraction class — only front card gets mouse-reactive highlight
+  for (var ka = 0; ka < n; ka++) {
+    if (ka === frontIdx) cardEls[ka].classList.add("card-active");
+    else                 cardEls[ka].classList.remove("card-active");
+  }
+
+  // Energy-reactive logo orb
+  updateLogo(t);
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+// ─── Pointer events ────────────────────────────────────────────────────────
+container.addEventListener("pointerdown", function(e) {
+  dragActive  = true;
+  dragLastX   = e.clientX;
+  dragSamples = [0, 0, 0];
+  velocity    = 0;
+  container.setPointerCapture(e.pointerId);
+  container.style.cursor = "grabbing";
+});
+container.addEventListener("pointermove", function(e) {
+  if (!dragActive) return;
+  var dx = e.clientX - dragLastX;
+  var dv = dx * DRAG_SCALE;
+  rotation += dv;
+  dragSamples.shift();
+  dragSamples.push(dv);
+  dragLastX = e.clientX;
+});
+function endDrag() {
+  if (!dragActive) return;
+  dragActive = false;
+  velocity = (dragSamples[0] + dragSamples[1] + dragSamples[2]) / 3;
+  container.style.cursor = "grab";
+  // Snap after brief momentum settles
+  setTimeout(snapToNearest, 160);
+}
+container.addEventListener("pointerup",     endDrag);
+container.addEventListener("pointercancel", endDrag);
+
+// Scroll to rotate + snap when scroll stops
+window.addEventListener("wheel", function(e) {
+  if (sectionIndex === 0) {
+    e.preventDefault();
+    snapTarget = null;
+    velocity = e.deltaY * 0.00008;
+    rotation += e.deltaY * 0.004;
+    clearTimeout(scrollSnapTimer);
+    scrollSnapTimer = setTimeout(snapToNearest, 180);
+  }
+}, { passive: false });
+
+// ─── One-card step (friction carries it ~1 card forward) ──────────────────
+// TWO_PI/n / (1 - FRICTION) = 1.047 / 0.07 ≈ 0.073
+var CARD_STEP = (TWO_PI / n) / (1 / (1 - FRICTION));
+
+function stepLeft()  { snapTarget = null; velocity = -CARD_STEP; setTimeout(snapToNearest, 360); }
+function stepRight() { snapTarget = null; velocity =  CARD_STEP; setTimeout(snapToNearest, 360); }
+
+// ─── Keyboard arrows ───────────────────────────────────────────────────────
+window.addEventListener("keydown", function(e) {
+  if (e.key === "ArrowLeft"  || e.key === "ArrowUp")    { e.preventDefault(); stepLeft(); }
+  if (e.key === "ArrowRight" || e.key === "ArrowDown")  { e.preventDefault(); stepRight(); }
+});
+
+// ─── Nav buttons ───────────────────────────────────────────────────────────
+function makeNavBtn(label, clickFn, side) {
+  var btn = document.createElement("button");
+  btn.textContent = label;
+  btn.className = "nav-btn";
+  btn.style[side] = "18px";
+  btn.addEventListener("click", clickFn);
+  stage.appendChild(btn);
+}
+
+makeNavBtn("‹", stepLeft,  "left");
+makeNavBtn("›", stepRight, "right");
+
+// ─── Instruction hint ──────────────────────────────────────────────────────
+var hint = document.createElement("div");
+hint.style.cssText = [
+  "position:absolute",
+  "bottom:18px",
+  "left:0","right:0",
+  "text-align:center",
+  "font-size:11px",
+  "letter-spacing:0.12em",
+  "color:rgba(255,255,255,0.22)",
+  "pointer-events:none",
+  "z-index:100",
+  "text-transform:uppercase",
+].join(";");
+hint.textContent = "Drag · Scroll · Arrow keys · Click ‹ ›";
+stage.appendChild(hint);
+
+// ─── Overlay system ─────────────────────────────────────────────────────────
+
+var OVERLAY_CONTENT = [
+  // 0 — RELEASES
+  { title:"Releases", accent:"#C9A227",
+    body:"<p>Over 40 records spanning deep house, techno, and electronica.</p><ul><li>MultiVerse — Dagher (US)</li><li>Browse the full catalogue below.</li></ul><div class='ol-cta'>View All Releases</div>" },
+  // 1 — ARTISTS
+  { title:"Artists", accent:"#ff8c50",
+    body:"<p>A global roster of 24 producers, DJs, and live acts.</p><ul><li>Hotboxx</li><li>Abuekev</li><li>Sunday Noise</li><li>LXOFC</li><li>+ 20 more</li></ul><div class='ol-cta'>Full Roster</div>" },
+  // 2 — ORIGINALS
+  { title:"Originals", accent:"#C9A227",
+    body:"<p>12 exclusive original productions — composed, mixed, and mastered in-house.</p><ul><li>Unreleased cuts from the archives</li><li>Label-exclusive edits</li></ul><div class='ol-cta'>Listen Now</div>" },
+  // 3 — CONTACT
+  { title:"Contact", accent:"#a78bfa",
+    body:"<div class='ol-form'><input placeholder='Name' /><input placeholder='Email' /><textarea placeholder='Message...'></textarea><div class='ol-cta'>Send Message</div></div>" },
+  // 4 — MIXES
+  { title:"Mixes", accent:"#50e3c2",
+    body:"<p>30+ hours of continuous mixes, radio shows, and live sets.</p><ul><li>Monthly radio series</li><li>Festival live recordings</li><li>Guest mix archives</li></ul><div class='ol-cta'>Stream Mixes</div>" },
+  // 5 — LABEL
+  { title:"Original Label", accent:"#C9A227",
+    body:"<p>Independent electronic music label founded in 2019. Dedicated to authentic sound, artist development, and community.</p><ul><li>Bookings &amp; A&amp;R inquiries welcome</li><li>Demo submissions open</li></ul><div class='ol-cta'>Learn More</div>" },
+];
+
+// Inject overlay CSS
+var olStyle = document.createElement("style");
+olStyle.textContent = [
+  "#ol-backdrop{",
+    "position:fixed;inset:0;z-index:1000;",
+    "background:rgba(3,3,8,0.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);",
+    "display:flex;align-items:center;justify-content:center;",
+    "opacity:0;pointer-events:none;transition:opacity 0.35s ease;",
+  "}",
+  "#ol-backdrop.ol-open{opacity:1;pointer-events:all;}",
+  "#ol-panel{",
+    "position:relative;width:min(520px,90vw);max-height:80vh;overflow-y:auto;",
+    "background:rgba(12,12,22,0.92);",
+    "border:1px solid rgba(255,255,255,0.10);border-radius:20px;",
+    "padding:44px 40px 40px;",
+    "box-shadow:0 32px 80px rgba(0,0,0,0.70),inset 0 0 40px rgba(255,255,255,0.03);",
+    "transform:translateY(28px);transition:transform 0.38s cubic-bezier(.22,1,.36,1);",
+    "font-family:system-ui,sans-serif;color:#fff;",
+  "}",
+  "#ol-backdrop.ol-open #ol-panel{transform:translateY(0);}",
+  "#ol-close{",
+    "position:absolute;top:16px;right:18px;",
+    "background:none;border:none;color:rgba(255,255,255,0.45);",
+    "font-size:22px;cursor:pointer;line-height:1;padding:4px 8px;",
+    "transition:color 0.2s;",
+  "}",
+  "#ol-close:hover{color:#fff;}",
+  "#ol-accent-bar{height:2px;border-radius:2px;width:36px;margin-bottom:20px;}",
+  "#ol-title{font-size:26px;font-weight:800;letter-spacing:0.04em;margin-bottom:16px;}",
+  "#ol-body p{font-size:14px;color:rgba(255,255,255,0.62);line-height:1.65;margin-bottom:12px;}",
+  "#ol-body ul{list-style:none;padding:0;margin:0 0 18px;}",
+  "#ol-body ul li{font-size:13px;color:rgba(255,255,255,0.50);padding:5px 0;",
+    "border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:0.04em;}",
+  ".ol-cta{display:inline-block;margin-top:18px;padding:10px 22px;border-radius:8px;",
+    "font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;",
+    "background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);",
+    "color:#fff;cursor:pointer;transition:background 0.2s,border-color 0.2s;}",
+  ".ol-cta:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.28);}",
+  ".ol-form{display:flex;flex-direction:column;gap:10px;}",
+  ".ol-form input,.ol-form textarea{",
+    "background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);",
+    "border-radius:8px;padding:11px 14px;color:#fff;font-size:13px;",
+    "font-family:system-ui,sans-serif;outline:none;",
+    "transition:border-color 0.2s;}",
+  ".ol-form input:focus,.ol-form textarea:focus{border-color:rgba(255,255,255,0.28);}",
+  ".ol-form textarea{min-height:90px;resize:vertical;}",
+].join("");
+document.head.appendChild(olStyle);
+
+// Build backdrop + panel DOM
+var olBackdrop = document.createElement("div");
+olBackdrop.id = "ol-backdrop";
+
+var olPanel = document.createElement("div");
+olPanel.id = "ol-panel";
+
+var olClose = document.createElement("button");
+olClose.id = "ol-close";
+olClose.textContent = "×";
+olPanel.appendChild(olClose);
+
+var olAccentBar = document.createElement("div");
+olAccentBar.id = "ol-accent-bar";
+olPanel.appendChild(olAccentBar);
+
+var olTitle = document.createElement("div");
+olTitle.id = "ol-title";
+olPanel.appendChild(olTitle);
+
+var olBody = document.createElement("div");
+olBody.id = "ol-body";
+olPanel.appendChild(olBody);
+
+olBackdrop.appendChild(olPanel);
+document.body.appendChild(olBackdrop);
+
+function openOverlay(idx) {
+  var data = OVERLAY_CONTENT[idx];
+  olAccentBar.style.background = data.accent;
+  olTitle.textContent          = data.title;
+  olBody.innerHTML             = data.body;
+  olBackdrop.classList.add("ol-open");
+}
+function closeOverlay() {
+  olBackdrop.classList.remove("ol-open");
+}
+
+olClose.addEventListener("click", closeOverlay);
+olBackdrop.addEventListener("click", function(e) {
+  if (e.target === olBackdrop) closeOverlay();
+});
+window.addEventListener("keydown", function(e) {
+  if (e.key === "Escape") closeOverlay();
+});
+
+// ─── Card click — open overlay for front card only ──────────────────────────
+// Track pointer travel to distinguish tap from drag
+var pointerTravelSq = 0;
+var pointerDownX = 0, pointerDownY = 0;
+
+container.addEventListener("pointerdown", function(e) {
+  pointerDownX = e.clientX; pointerDownY = e.clientY; pointerTravelSq = 0;
+}, true);
+container.addEventListener("pointermove", function(e) {
+  var dx = e.clientX - pointerDownX, dy = e.clientY - pointerDownY;
+  pointerTravelSq = dx*dx + dy*dy;
+}, true);
+
+cardEls.forEach(function(el, i) {
+  el.addEventListener("click", function() {
+    if (pointerTravelSq > 64) return; // > 8px travel = drag, not tap
+    // Only open if this card is near the front (tSoft > 0.7)
+    var norm   = normalizeAngle(baseAngles[i] + rotation);
+    var depth  = Math.cos(norm);
+    var tSoft  = Math.pow((depth + 1) / 2, 1.5);
+    if (tSoft < 0.70) return;
+    openOverlay(i);
+  });
+});
+
+// ─── Cinematic flash cut ───────────────────────────────────────────────────
+var flashEl = document.querySelector(".flash");
+function cinematicCut() {
+  if (!flashEl) return;
+  flashEl.classList.add("active");
+  setTimeout(function() { flashEl.classList.remove("active"); }, 120);
+}
+
+// ─── Cinematic intro sequence ──────────────────────────────────────────────
+(function() {
+  var intro    = document.getElementById("intro");
+  var introTxt = document.querySelector(".intro-logo-text");
+  var introSub = document.querySelector(".intro-sub");
+  if (!intro) return;
+
+  var ic   = document.getElementById("intro-canvas");
+  var ictx = ic.getContext("2d");
+  ic.width  = window.innerWidth;
+  ic.height = window.innerHeight;
+
+  var introAlive  = true;
+  var introEnergy = 0;
+
+  function drawIntroFrame(ts) {
+    if (!introAlive) return;
+    var t = ts / 1000;
+    introEnergy = Math.min(introEnergy + 0.014, 1.0);
+    ictx.clearRect(0, 0, ic.width, ic.height);
+
+    var cx = ic.width / 2, cy = ic.height / 2;
+
+    // Expanding radial energy field
+    var gr = ictx.createRadialGradient(cx, cy, 0, cx, cy, 380 * introEnergy + 30);
+    gr.addColorStop(0,    "rgba(201,162,39," + (0.22 * introEnergy).toFixed(3) + ")");
+    gr.addColorStop(0.45, "rgba(100,55,180," + (0.12 * introEnergy).toFixed(3) + ")");
+    gr.addColorStop(1,    "rgba(0,0,0,0)");
+    ictx.fillStyle = gr;
+    ictx.fillRect(0, 0, ic.width, ic.height);
+
+    // Pulsing concentric rings
+    for (var r = 1; r <= 5; r++) {
+      var rr = (50 + r * 72) * introEnergy + Math.sin(t * 1.1 + r) * 7;
+      var a  = Math.max(0, (0.22 - r * 0.035) * introEnergy);
+      ictx.beginPath();
+      ictx.arc(cx, cy, rr, 0, Math.PI * 2);
+      ictx.strokeStyle = "rgba(201,162,39," + a.toFixed(3) + ")";
+      ictx.lineWidth   = 1;
+      ictx.stroke();
+    }
+    requestAnimationFrame(drawIntroFrame);
+  }
+
+  // Staggered timeline
+  setTimeout(function() { requestAnimationFrame(drawIntroFrame); },  180);
+  setTimeout(function() { introTxt && introTxt.classList.add("active"); },  860);
+  setTimeout(function() { introSub && introSub.classList.add("active"); }, 1080);
+  // Impact hit
+  setTimeout(function() {
+    if (flashEl) { flashEl.classList.add("active"); }
+  }, 2700);
+  // Fade out intro and enter carousel
+  setTimeout(function() {
+    if (flashEl) { flashEl.classList.remove("active"); }
+    introAlive = false;
+    intro.style.opacity = "0";
+  }, 2840);
+  setTimeout(function() { intro.remove(); }, 3840);
+  // Show scroll hint after intro clears
+  setTimeout(function() {
+    var sh = document.getElementById("scroll-hint");
+    if (sh) sh.style.opacity = "1";
+  }, 4200);
+})();
+
+// ─── Section system ──────────────────────────────────────────────────────────
+
+var SECTION_CARDS  = [null, 1, 0, 3];  // panel → card index (null = no forced snap)
+var SECTION_ENERGY = [0.80, 1.35, 1.50, 1.65];
+var SECTION_FOG_COLORS = [
+  null,
+  "rgba(255,100,40,0.14)",   // ARTISTS — ember
+  "rgba(201,162,39,0.12)",   // RELEASES — gold
+  "rgba(140,60,255,0.14)",   // CONTACT — violet
+];
+var panels   = [
+  document.getElementById("panel-hero"),
+  document.getElementById("panel-artists"),
+  document.getElementById("panel-releases"),
+  document.getElementById("panel-contact"),
+];
+var sectDots = document.querySelectorAll(".sect-dot");
+
+function setSection(idx) {
+  if (idx === sectionIndex && idx !== 0) return;
+  sectionIndex = idx;
+
+  panels.forEach(function(p, i) {
+    if (!p) return;
+    p.classList.toggle("active", i === idx);
+  });
+  sectDots.forEach(function(d) {
+    d.classList.toggle("active", parseInt(d.dataset.idx) === idx);
+  });
+
+  // Snap carousel to the associated card
+  var cardIdx = SECTION_CARDS[idx];
+  if (cardIdx !== null && cardIdx !== undefined) snapToCard(cardIdx);
+
+  // Energy burst
+  energyLevel = Math.max(energyLevel, SECTION_ENERGY[idx] || 0.8);
+}
+
+window.addEventListener("scroll", function() {
+  var vh  = window.innerHeight;
+  var idx = Math.min(3, Math.floor(window.scrollY / vh));
+  if (idx !== sectionIndex) setSection(idx);
+}, { passive: true });
+
+// Section dot click navigation
+sectDots.forEach(function(dot) {
+  dot.addEventListener("click", function() {
+    var idx = parseInt(dot.dataset.idx);
+    window.scrollTo({ top: idx * window.innerHeight, behavior: "smooth" });
+  });
+});
+
+// ─── Artist data + expansion ─────────────────────────────────────────────────
+
+var ARTIST_DATA = [
+  {
+    name:  "Hotboxx",
+    desc:  "Detroit-rooted, warehouse-forged. Hotboxx builds tension through layered percussion and raw low-end that never releases too early.",
+    genre: "Deep Techno / Warehouse",
+    img:   "carousel/Frames/Artists/Hotboxx-ps4.jpg",
+    color: [255, 120, 50],
+    albums: [
+      {
+        title: "Friction",
+        year:  "2024",
+        cover: "carousel/Frames/Artists/Hotboxx-ps4.jpg",
+        color: [255, 120, 50],
+        tracks: [
+          { title: "Friction Loop",   dur: "6:14", src: "" },
+          { title: "Midnight Grid",   dur: "7:02", src: "" },
+          { title: "Concrete Heat",   dur: "5:48", src: "" },
+          { title: "Sub Return",      dur: "8:11", src: "" },
+        ]
+      },
+      {
+        title: "Warehouse Series Vol. 1",
+        year:  "2023",
+        cover: "carousel/Frames/Artists/Hotboxx-ps4.jpg",
+        color: [200, 80, 30],
+        tracks: [
+          { title: "Entry Point",     dur: "5:30", src: "" },
+          { title: "Pressure System", dur: "9:04", src: "" },
+          { title: "Late Circuit",    dur: "6:55", src: "" },
+        ]
+      },
+      {
+        title: "Signal / Noise",
+        year:  "2022",
+        cover: "carousel/Frames/Artists/Hotboxx-ps4.jpg",
+        color: [160, 60, 20],
+        tracks: [
+          { title: "Signal",          dur: "4:20", src: "" },
+          { title: "Noise",           dur: "7:38", src: "" },
+        ]
+      },
+    ]
+  },
+  {
+    name:  "Abuekev",
+    desc:  "Atmospheric house that moves between introspection and dancefloor urgency. Abuekev's sound is cinematic, detailed, and deeply personal.",
+    genre: "Atmospheric House",
+    img:   "carousel/Frames/Artists/abuekev.jpeg",
+    color: [80, 160, 255],
+    albums: [
+      {
+        title: "Dusk Rituals",
+        year:  "2024",
+        cover: "carousel/Frames/Artists/abuekev.jpeg",
+        color: [80, 160, 255],
+        tracks: [
+          { title: "Dusk Ritual",     dur: "7:22", src: "" },
+          { title: "Hollow Glass",    dur: "6:08", src: "" },
+          { title: "Still Current",   dur: "5:44", src: "" },
+          { title: "Fade Study",      dur: "8:30", src: "" },
+        ]
+      },
+      {
+        title: "Periphery",
+        year:  "2023",
+        cover: "carousel/Frames/Artists/abuekev.jpeg",
+        color: [50, 100, 200],
+        tracks: [
+          { title: "Periphery I",     dur: "5:55", src: "" },
+          { title: "Periphery II",    dur: "6:40", src: "" },
+          { title: "Afterglow",       dur: "7:15", src: "" },
+        ]
+      },
+    ]
+  },
+  {
+    name:  "Sunday Noise",
+    desc:  "Sunday Noise explores the space between ambient and club — slow-burning grooves that reward patience and punish inattention.",
+    genre: "Deep House / Organic",
+    img:   "carousel/Frames/Artists/sundaynoise.jpeg",
+    color: [80, 227, 194],
+    albums: [
+      {
+        title: "Root System",
+        year:  "2024",
+        cover: "carousel/Frames/Artists/sundaynoise.jpeg",
+        color: [80, 227, 194],
+        tracks: [
+          { title: "Slow Burn",       dur: "8:00", src: "" },
+          { title: "Root System",     dur: "6:50", src: "" },
+          { title: "Soil Memory",     dur: "5:22", src: "" },
+          { title: "Deep Growth",     dur: "9:11", src: "" },
+        ]
+      },
+      {
+        title: "Quiet Hours",
+        year:  "2022",
+        cover: "carousel/Frames/Artists/sundaynoise.jpeg",
+        color: [40, 160, 130],
+        tracks: [
+          { title: "Sunday Morning",  dur: "7:30", src: "" },
+          { title: "Stillwater",      dur: "6:10", src: "" },
+        ]
+      },
+    ]
+  },
+  {
+    name:  "LXOFC",
+    desc:  "Industrial textures, modular chaos, and a production philosophy that treats noise as an instrument. LXOFC operates at the edge.",
+    genre: "Experimental / Industrial",
+    img:   "carousel/Frames/Artists/lxofc.png",
+    color: [200, 80, 255],
+    albums: [
+      {
+        title: "Machine Breath",
+        year:  "2024",
+        cover: "carousel/Frames/Artists/lxofc.png",
+        color: [200, 80, 255],
+        tracks: [
+          { title: "Machine Breath",  dur: "5:10", src: "" },
+          { title: "Static Field",    dur: "7:44", src: "" },
+          { title: "Voltage Drift",   dur: "6:28", src: "" },
+          { title: "Terminal",        dur: "8:55", src: "" },
+        ]
+      },
+      {
+        title: "Fault Lines",
+        year:  "2023",
+        cover: "carousel/Frames/Artists/lxofc.png",
+        color: [140, 40, 200],
+        tracks: [
+          { title: "Fault Line I",    dur: "6:00", src: "" },
+          { title: "Fault Line II",   dur: "8:20", src: "" },
+          { title: "Collapse",        dur: "5:50", src: "" },
+        ]
+      },
+    ]
+  },
+];
+
+var artistView  = document.getElementById("artist-view");
+var avImg       = document.getElementById("av-img");
+var avName      = document.getElementById("av-name");
+var avDesc      = document.getElementById("av-desc");
+var avGenre     = document.getElementById("av-genre");
+var avPlayBtn   = document.getElementById("av-play-btn");
+var avClose     = document.getElementById("av-close");
+var currentArtistIdx = -1;
+
+function renderAlbums(artistIdx) {
+  var a    = ARTIST_DATA[artistIdx];
+  var grid = document.getElementById("album-grid");
+  grid.innerHTML = "";
+  if (!a || !a.albums) return;
+  a.albums.forEach(function(album, i) {
+    var card = document.createElement("div");
+    card.className = "album-card";
+
+    var img = document.createElement("img");
+    img.className   = "album-card-cover";
+    img.src         = album.cover;
+    img.alt         = album.title;
+    card.appendChild(img);
+
+    var info = document.createElement("div");
+    info.className  = "album-card-info";
+    var titleEl = document.createElement("div");
+    titleEl.className = "album-card-title";
+    titleEl.textContent = album.title;
+    var yearEl = document.createElement("div");
+    yearEl.className = "album-card-year";
+    yearEl.textContent = album.year + " · " + album.tracks.length + " tracks";
+    info.appendChild(titleEl);
+    info.appendChild(yearEl);
+    card.appendChild(info);
+
+    card.addEventListener("click", function() { openAlbum(artistIdx, i); });
+    grid.appendChild(card);
+  });
+}
+
+function openArtist(idx) {
+  var a = ARTIST_DATA[idx];
+  if (!a) return;
+  currentArtistIdx = idx;
+
+  avImg.src          = a.img;
+  avName.textContent  = a.name;
+  avDesc.textContent  = a.desc;
+  avGenre.textContent = a.genre;
+  avPlayBtn.classList.remove("playing");
+  avPlayBtn.innerHTML = "&#9654; Play Latest";
+
+  renderAlbums(idx);
+
+  // Sync glow color to artist
+  glowR = a.color[0]; glowG = a.color[1]; glowB = a.color[2];
+  energyLevel = 1.6;
+
+  artistView.classList.add("active");
+  document.body.style.overflow = "hidden";
+}
+
+function closeArtist() {
+  albumView.classList.remove("active");
+  artistView.classList.remove("active");
+  document.body.style.overflow = "";
+  currentArtistIdx = -1;
+  if (audioCtx) stopAudio();
+}
+
+// ─── Album view ───────────────────────────────────────────────────────────────
+
+var albumView     = document.getElementById("album-view");
+var alvBg         = document.getElementById("alv-bg");
+var alvCoverImg   = document.getElementById("alv-cover-img");
+var alvArtistName = document.getElementById("alv-artist-name");
+var alvTitle      = document.getElementById("alv-title");
+var alvTracklist  = document.getElementById("album-tracks");
+var alvBack       = document.getElementById("alv-back");
+var alvClose      = document.getElementById("alv-close");
+var currentAlbum  = null;
+
+function renderAlbumTracks(artistIdx, albumIdx) {
+  var album = ARTIST_DATA[artistIdx].albums[albumIdx];
+  alvTracklist.innerHTML = "";
+  album.tracks.forEach(function(track, i) {
+    var row = document.createElement("div");
+    row.className = "alv-track";
+
+    var num = document.createElement("div");
+    num.className = "alv-track-num";
+    num.textContent = (i + 1 < 10 ? "0" : "") + (i + 1);
+
+    var name = document.createElement("div");
+    name.className = "alv-track-name";
+    name.textContent = track.title;
+
+    var dur = document.createElement("div");
+    dur.className = "alv-track-dur";
+    dur.textContent = track.dur || "";
+
+    row.appendChild(num);
+    row.appendChild(name);
+    row.appendChild(dur);
+
+    row.addEventListener("click", function() {
+      // Update active state
+      alvTracklist.querySelectorAll(".alv-track").forEach(function(r) { r.classList.remove("playing"); });
+      row.classList.add("playing");
+      loadTrack(artistIdx, albumIdx, i);
     });
+    alvTracklist.appendChild(row);
+  });
+}
 
-    const items = Array.from(document.querySelectorAll('.c-item'));
-    const dots  = Array.from(document.querySelectorAll('.dot'));
+function openAlbum(artistIdx, albumIdx) {
+  var a     = ARTIST_DATA[artistIdx];
+  var album = a.albums[albumIdx];
+  currentAlbum = { artistIdx: artistIdx, albumIdx: albumIdx };
 
-    /* ─── Slideshow ───────────────────────────── */
-    const slideState = SECTIONS.map(() => ({ cur: 0 }));
+  alvBg.style.backgroundImage       = "url(" + album.cover + ")";
+  alvCoverImg.src                    = album.cover;
+  alvArtistName.textContent          = a.name;
+  alvTitle.textContent               = album.title;
 
-    function advanceSlide(sIdx) {
-      const s = SECTIONS[sIdx];
-      if (!s.imgs || s.imgs.length <= 1) return;
-      const state  = slideState[sIdx];
-      const slides = items[sIdx].querySelectorAll('.c-slide');
-      const sdots  = items[sIdx].querySelectorAll('.c-sdot');
-      const next   = (state.cur + 1) % s.imgs.length;
-      gsap.to(slides[state.cur], { opacity: 0, duration: 1.4, ease: 'power1.inOut' });
-      gsap.to(slides[next],      { opacity: 1, duration: 1.4, ease: 'power1.inOut' });
-      if (sdots.length) {
-        sdots[state.cur].classList.remove('on');
-        sdots[next].classList.add('on');
-      }
-      state.cur = next;
+  // Shift glow to album color
+  glowR = album.color[0]; glowG = album.color[1]; glowB = album.color[2];
+  energyLevel = 1.8;
+
+  renderAlbumTracks(artistIdx, albumIdx);
+  albumView.classList.add("active");
+}
+
+function closeAlbum() {
+  albumView.classList.remove("active");
+  currentAlbum = null;
+}
+
+alvBack.addEventListener("click", closeAlbum);
+alvClose.addEventListener("click", function() { closeAlbum(); closeArtist(); });
+window.addEventListener("keydown", function(e) {
+  if (e.key === "Escape") {
+    if (albumView.classList.contains("active")) { closeAlbum(); return; }
+    if (artistView.classList.contains("active")) closeArtist();
+  }
+});
+
+avClose.addEventListener("click", closeArtist);
+artistView.addEventListener("click", function(e) {
+  if (e.target === artistView) closeArtist();
+});
+
+// Wire artist cards
+document.querySelectorAll(".artist-card").forEach(function(card) {
+  card.addEventListener("click", function() {
+    var idx = parseInt(card.dataset.artist);
+    openArtist(idx);
+  });
+});
+
+// ─── Web Audio API + player ──────────────────────────────────────────────────
+
+var audioCtx   = null;
+var analyser   = null;
+var source     = null;
+var audioEl    = null;
+var dataArray  = null;
+var currentTrackArtist = -1;
+var currentTrackIdx    = -1;
+var isPlaying          = false;
+
+var pbPlay   = document.getElementById("pb-play");
+var pbNext   = document.getElementById("pb-next");
+var pbTrack  = document.getElementById("pb-track");
+var pbFill   = document.getElementById("pb-fill");
+var pbEnergy = document.getElementById("pb-energy");
+var playerBar = document.getElementById("player-bar");
+var waveCanvas = document.getElementById("waveform");
+var waveCtx    = waveCanvas.getContext("2d");
+waveCanvas.width  = 600;
+waveCanvas.height = 90;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+  analyser  = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  analyser.connect(audioCtx.destination);
+}
+
+// loadTrack(artistIdx, albumIdx, trackIdx)
+// albumIdx can be omitted (pass -1 or undefined) to play from first album
+function loadTrack(artistIdx, albumIdx, trackIdx) {
+  initAudio();
+  var a = ARTIST_DATA[artistIdx];
+  if (!a) return;
+  if (albumIdx === undefined || albumIdx < 0) albumIdx = 0;
+  var album = a.albums && a.albums[albumIdx];
+  if (!album) return;
+  var t = album.tracks[trackIdx];
+  if (!t) { trackIdx = 0; t = album.tracks[0]; }
+
+  // Show in player bar regardless of whether src is set
+  currentTrackArtist = artistIdx;
+  currentTrackIdx    = trackIdx;
+  currentAlbumIdx    = albumIdx;
+  pbTrack.textContent = a.name + " — " + t.title;
+  playerBar.classList.add("visible");
+
+  if (!t.src) return; // no file yet, just show name
+
+  if (audioEl) { audioEl.pause(); audioEl.src = ""; }
+  if (source)  { try { source.disconnect(); } catch(e){} }
+
+  audioEl = new Audio(t.src);
+  audioEl.crossOrigin = "anonymous";
+  source  = audioCtx.createMediaElementSource(audioEl);
+  source.connect(analyser);
+
+  audioEl.play().then(function() {
+    isPlaying = true;
+    pbPlay.innerHTML = "&#9646;&#9646;";
+    pbPlay.classList.add("active");
+    waveCanvas.classList.add("visible");
+  }).catch(function() { isPlaying = false; });
+
+  audioEl.addEventListener("timeupdate", function() {
+    if (!audioEl.duration) return;
+    pbFill.style.width = ((audioEl.currentTime / audioEl.duration) * 100) + "%";
+  });
+  audioEl.addEventListener("ended", function() {
+    var nextIdx = trackIdx + 1;
+    if (nextIdx >= album.tracks.length) nextIdx = 0;
+    loadTrack(artistIdx, albumIdx, nextIdx);
+    // Update track highlight in album view
+    var rows = alvTracklist.querySelectorAll(".alv-track");
+    rows.forEach(function(r) { r.classList.remove("playing"); });
+    if (rows[nextIdx]) rows[nextIdx].classList.add("playing");
+  });
+}
+
+var currentAlbumIdx = 0;
+
+function playTrack(artistIdx, albumIdx, trackIdx) {
+  var a = ARTIST_DATA[artistIdx];
+  if (!a || !a.albums) return;
+  var album = a.albums[albumIdx] || a.albums[0];
+  if (trackIdx >= album.tracks.length) trackIdx = 0;
+  loadTrack(artistIdx, albumIdx, trackIdx);
+}
+
+function stopAudio() {
+  if (audioEl) { audioEl.pause(); isPlaying = false; }
+  pbPlay.innerHTML = "&#9654;";
+  pbPlay.classList.remove("active");
+}
+
+pbPlay.addEventListener("click", function() {
+  if (!audioEl) {
+    var idx = currentArtistIdx >= 0 ? currentArtistIdx : 0;
+    loadTrack(idx, 0);
+    return;
+  }
+  if (isPlaying) {
+    audioEl.pause();
+    isPlaying = false;
+    pbPlay.innerHTML = "&#9654;";
+    pbPlay.classList.remove("active");
+  } else {
+    audioCtx.resume();
+    audioEl.play();
+    isPlaying = true;
+    pbPlay.innerHTML = "&#9646;&#9646;";
+    pbPlay.classList.add("active");
+  }
+});
+
+pbNext.addEventListener("click", function() {
+  if (currentTrackArtist < 0) return;
+  var album = ARTIST_DATA[currentTrackArtist].albums[currentAlbumIdx];
+  var next = (currentTrackIdx + 1) % album.tracks.length;
+  loadTrack(currentTrackArtist, currentAlbumIdx, next);
+});
+
+// Play button in artist overlay
+avPlayBtn.addEventListener("click", function() {
+  if (currentArtistIdx < 0) return;
+  if (isPlaying && currentTrackArtist === currentArtistIdx) {
+    stopAudio();
+    avPlayBtn.classList.remove("playing");
+    avPlayBtn.innerHTML = "&#9654; Play Latest";
+  } else {
+    loadTrack(currentArtistIdx, 0, 0);
+    avPlayBtn.classList.add("playing");
+    avPlayBtn.innerHTML = "&#9646;&#9646; Playing";
+  }
+});
+
+// Progress bar scrub
+document.getElementById("pb-progress").addEventListener("click", function(e) {
+  if (!audioEl || !audioEl.duration) return;
+  var rect = this.getBoundingClientRect();
+  audioEl.currentTime = ((e.clientX - rect.left) / rect.width) * audioEl.duration;
+});
+
+// ─── Waveform draw loop ───────────────────────────────────────────────────────
+
+function drawWaveform() {
+  requestAnimationFrame(drawWaveform);
+  if (!analyser || !isPlaying) {
+    waveCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+    return;
+  }
+
+  analyser.getByteTimeDomainData(dataArray);
+
+  waveCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+
+  // Audio-reactive color using glowR/G/B (already driven by front card / artist)
+  var bass = dataArray[5] / 255;
+  var r = Math.round(Math.min(255, glowR + bass * 55));
+  var g = Math.round(Math.min(255, glowG + bass * 40));
+  var b = Math.round(Math.min(255, glowB + bass * 30));
+
+  waveCtx.shadowBlur  = 18 + bass * 24;
+  waveCtx.shadowColor = "rgba(" + r + "," + g + "," + b + ",0.6)";
+  waveCtx.strokeStyle = "rgba(" + r + "," + g + "," + b + ",0.9)";
+  waveCtx.lineWidth   = 2;
+
+  waveCtx.beginPath();
+  var sliceW = waveCanvas.width / dataArray.length;
+  var x = 0;
+  for (var i = 0; i < dataArray.length; i++) {
+    var v  = dataArray[i] / 128.0;
+    var y  = (v * waveCanvas.height) / 2;
+    var v2 = (dataArray[i + 1] || dataArray[i]) / 128.0;
+    var y2 = (v2 * waveCanvas.height) / 2;
+    if (i === 0) {
+      waveCtx.moveTo(x, y);
+    } else {
+      waveCtx.quadraticCurveTo(x, y, x + sliceW / 2, (y + y2) / 2);
     }
+    x += sliceW;
+  }
+  waveCtx.stroke();
 
-    SECTIONS.forEach((s, i) => {
-      if (s.imgs && s.imgs.length > 1) {
-        setTimeout(() => setInterval(() => advanceSlide(i), 4800), i * 900);
-      }
-    });
+  // Drive energyLevel from bass + mid
+  var mid = dataArray[20] / 255;
+  energyLevel = Math.max(energyLevel, 0.6 + bass * 1.8 + mid * 0.4);
 
-    /* ─── Sync UI ─────────────────────────────── */
-    function syncUI(idx) {
-      dots.forEach((d, i) => d.classList.toggle('active', i === idx));
-      counterEl.innerHTML = `<em>0${idx + 1}</em> / 0${TOTAL}`;
-    }
+  // Pulse the energy dot
+  pbEnergy.style.transform = "scale(" + (1 + bass * 1.4) + ")";
+  pbEnergy.style.background = "rgba(" + r + "," + g + "," + b + ",0.8)";
+}
 
-    /* ─── Navigate ────────────────────────────── */
-    function go(idx) {
-      if (idx === cur || idx < 0 || idx >= TOTAL) return;
-      cur = idx;
-      spawnRipple();
-
-      items.forEach((el, i) => {
-        const dist     = Math.abs(i - cur);
-        const isActive = i === cur;
-        el.classList.toggle('active', isActive);
-
-        // Position, opacity, blur — smooth power ease
-        gsap.to(el, {
-          left:    posX(i, cur),
-          opacity: opacityFor(dist),
-          filter:  `blur(${blurFor(dist)}px)`,
-          duration: 1.05,
-          ease: 'power3.inOut',
-          overwrite: true,
-        });
-
-        // Scale — active circle gets spring overshoot, others smooth
-        gsap.to(el, {
-          scale:    scaleFor(dist),
-          duration: isActive ? 1.3 : 1.05,
-          ease:     isActive ? 'back.out(1.55)' : 'power3.inOut',
-          overwrite: 'auto',
-        });
-      });
-
-      // Entrance shimmer on active circle
-      const shimmer = items[cur].querySelector('.c-shimmer');
-      if (shimmer) gsap.fromTo(shimmer,
-        { opacity: 0.95 },
-        { opacity: 0, duration: 1.5, ease: 'power2.out' }
-      );
-
-      syncUI(cur);
-    }
-
-    /* ─── Clicks & Hover ──────────────────────── */
-    items.forEach((el, i) => {
-      el.addEventListener('click', () => {
-        if (i !== cur) go(i);
-        else window.location.href = SECTIONS[i].href;
-      });
-      el.addEventListener('mouseenter', () => {
-        document.getElementById('cur').classList.add('big');
-        if (i !== cur) {
-          const dist = Math.abs(i - cur);
-          gsap.to(el, { scale: scaleFor(dist) * 1.045, duration: 0.4, ease: 'power2.out', overwrite: 'auto' });
-        }
-      });
-      el.addEventListener('mouseleave', () => {
-        document.getElementById('cur').classList.remove('big');
-        if (i !== cur) {
-          const dist = Math.abs(i - cur);
-          gsap.to(el, { scale: scaleFor(dist), duration: 0.5, ease: 'power2.inOut', overwrite: 'auto' });
-        }
-      });
-    });
-
-    /* ─── Observer ────────────────────────────── */
-    Observer.create({
-      type: 'wheel,touch,pointer',
-      wheelSpeed: -1,
-      onDown: () => go(cur - 1),
-      onUp:   () => go(cur + 1),
-      tolerance: 10,
-      preventDefault: true,
-    });
-
-    /* ─── Keyboard ────────────────────────────── */
-    document.addEventListener('keydown', e => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(cur + 1);
-      if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   go(cur - 1);
-      if (e.key === 'Enter') window.location.href = SECTIONS[cur].href;
-    });
-
-    /* ─── Enter outer click ────────────────────── */
-    document.getElementById('enter-outer').addEventListener('click', () => {
-      window.location.href = SECTIONS[cur].href;
-    });
-    document.getElementById('enter-outer').addEventListener('mouseenter', () => {
-      document.getElementById('cur').classList.add('big');
-    });
-    document.getElementById('enter-outer').addEventListener('mouseleave', () => {
-      document.getElementById('cur').classList.remove('big');
-    });
-
-    /* ─── Cursor ──────────────────────────────── */
-    const curEl = document.getElementById('cur');
-    document.addEventListener('mousemove', e => {
-      gsap.to(curEl, { x: e.clientX, y: e.clientY, duration: .08, ease: 'none' });
-    });
-
-    /* ─── Waveform ────────────────────────────── */
-    let waveTime = 0;
-    const BARS = 20;
-    const BAR_W = 2.5 * DPR;
-
-    function drawWave(canvas) {
-      const ctx = canvas.getContext('2d');
-      const W = canvas.width, H = canvas.height;
-      ctx.clearRect(0, 0, W, H);
-      const gap = (W - BARS * BAR_W) / (BARS + 1);
-      for (let i = 0; i < BARS; i++) {
-        const x = gap + i * (BAR_W + gap);
-        const wave = 0.5
-          + 0.3  * Math.sin(waveTime * 1.8 + i * 0.55)
-          + 0.15 * Math.sin(waveTime * 3.1 + i * 0.9)
-          + 0.05 * Math.sin(waveTime * 5.3 + i * 1.4);
-        const norm = Math.max(0, Math.min(1, wave));
-        const barH = 3 * DPR + norm * (H - 6 * DPR);
-        ctx.fillStyle = `rgba(212,255,0,${0.25 + norm * 0.6})`;
-        ctx.fillRect(x, (H - barH) / 2, BAR_W, barH);
-      }
-      waveTime += 0.048;
-    }
-
-    // Size the outer wave canvas once
-    const waveOuter = document.getElementById('wave-outer');
-    waveOuter.width  = WAVE_W * DPR;
-    waveOuter.height = WAVE_H * DPR;
-    waveOuter.style.width  = WAVE_W + 'px';
-    waveOuter.style.height = WAVE_H + 'px';
-
-    const enterOuter = document.getElementById('enter-outer');
-
-    function tickWave() {
-      drawWave(waveOuter);
-      requestAnimationFrame(tickWave);
-    }
-
-    function syncOuterUI() {
-      waveOuter.classList.toggle('visible', true);
-      enterOuter.classList.toggle('visible', true);
-    }
-
-    /* ─── Resize ──────────────────────────────── */
-    window.addEventListener('resize', () => {
-      calcLayout();
-      items.forEach((el, i) => {
-        gsap.set(el, { width: CIRCLE_D, height: CIRCLE_D, top: CIRCLE_TOP, left: posX(i, cur) });
-      });
-    });
-
-    /* ─────────────────────────────────────────── */
-    /* ── Animated background — geometric lines ── */
-    /* ─────────────────────────────────────────── */
-    const bgCanvas = document.getElementById('bg-canvas');
-    const bgCtx    = bgCanvas.getContext('2d');
-
-    function resizeBG() {
-      bgCanvas.width  = window.innerWidth  * DPR;
-      bgCanvas.height = window.innerHeight * DPR;
-      bgCanvas.style.width  = window.innerWidth  + 'px';
-      bgCanvas.style.height = window.innerHeight + 'px';
-      bgCtx.scale(DPR, DPR);
-    }
-    resizeBG();
-
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-
-    // ── Node class ──
-    class BGNode {
-      constructor(x, y) {
-        this.x = x; this.y = y;
-        this.active = false;
-        this.phase  = Math.random() * Math.PI * 2;
-      }
-      activate() { this.active = true; }
-      draw(ctx, t) {
-        if (!this.active) return;
-        const pulse = 1 + 0.4 * Math.sin(t * 1.2 + this.phase);
-        const r = 1.2 * pulse;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(212,255,0,${0.35 + 0.25 * Math.sin(t + this.phase)})`;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = 'rgba(212,255,0,0.7)';
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-    }
-
-    // ── Segment class — draws itself progressively ──
-    class BGSegment {
-      constructor(x1, y1, x2, y2, delay, nodeA, nodeB, alpha) {
-        this.x1 = x1; this.y1 = y1;
-        this.x2 = x2; this.y2 = y2;
-        this.delay   = delay;   // seconds before it starts
-        this.nodeA   = nodeA;
-        this.nodeB   = nodeB;
-        this.alpha   = alpha || 0.055;
-        this.progress = 0;
-        this.speed    = 0.0025 + Math.random() * 0.003;
-        this.done     = false;
-      }
-
-      update(elapsed) {
-        if (elapsed < this.delay) return;
-        if (this.done) return;
-        this.progress = Math.min(1, this.progress + this.speed);
-        if (this.progress >= 1) {
-          this.done = true;
-          if (this.nodeA) this.nodeA.activate();
-          if (this.nodeB) this.nodeB.activate();
-        }
-      }
-
-      draw(ctx) {
-        if (this.progress <= 0) return;
-        const ex = this.x1 + (this.x2 - this.x1) * this.progress;
-        const ey = this.y1 + (this.y2 - this.y1) * this.progress;
-        ctx.beginPath();
-        ctx.moveTo(this.x1, this.y1);
-        ctx.lineTo(ex, ey);
-        ctx.strokeStyle = `rgba(212,255,0,${this.alpha})`;
-        ctx.lineWidth   = 0.7;
-        ctx.shadowBlur  = 5;
-        ctx.shadowColor = 'rgba(212,255,0,0.35)';
-        ctx.stroke();
-        ctx.shadowBlur  = 0;
-      }
-    }
-
-    // ── Generate nodes scattered across the canvas ──
-    const nodes    = [];
-    const segments = [];
-    const N_NODES  = 32;
-    const MAX_DIST = Math.min(W, H) * 0.3;
-
-    for (let i = 0; i < N_NODES; i++) {
-      nodes.push(new BGNode(
-        W * 0.04 + Math.random() * W * 0.92,
-        H * 0.04 + Math.random() * H * 0.92
-      ));
-    }
-
-    // ── Add intentional corner bracket shapes ──
-    const m = 48; // margin from edge
-    const bLen = Math.min(W, H) * 0.09; // bracket arm length
-
-    function addBracket(cx, cy, dx, dy, delay) {
-      // corner bracket: two arms from cx,cy
-      const nCorner = new BGNode(cx, cy);
-      const nA = new BGNode(cx + dx * bLen, cy);
-      const nB = new BGNode(cx, cy + dy * bLen);
-      nodes.push(nCorner, nA, nB);
-      segments.push(
-        new BGSegment(cx, cy, cx + dx * bLen, cy, delay,            nCorner, nA, 0.08),
-        new BGSegment(cx, cy, cx, cy + dy * bLen, delay + 0.4, nCorner, nB, 0.08)
-      );
-    }
-
-    addBracket(m,     m,     1,  1,  0);
-    addBracket(W - m, m,    -1,  1,  0.6);
-    addBracket(m,     H - m, 1, -1,  1.2);
-    addBracket(W - m, H - m,-1, -1,  1.8);
-
-    // ── Connect nearby random nodes ──
-    let delayAcc = 2.5; // start after brackets
-
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        if (nodes[i].constructor === BGNode) { // all are BGNode, fine
-          const dx = nodes[j].x - nodes[i].x;
-          const dy = nodes[j].y - nodes[i].y;
-          const d  = Math.sqrt(dx * dx + dy * dy);
-          if (d < MAX_DIST && Math.random() > 0.5) {
-            segments.push(new BGSegment(
-              nodes[i].x, nodes[i].y,
-              nodes[j].x, nodes[j].y,
-              delayAcc,
-              nodes[i], nodes[j],
-              0.035 + Math.random() * 0.03
-            ));
-            delayAcc += 0.12 + Math.random() * 0.25;
-          }
-        }
-      }
-    }
-
-    // ── A few long diagonal accent lines across the canvas ──
-    const diagLines = [
-      [[W * 0.0, H * 0.3 ], [W * 0.25, H * 0.6 ]],
-      [[W * 0.75, H * 0.1 ], [W * 1.0, H * 0.45]],
-      [[W * 0.0, H * 0.7 ], [W * 0.18, H * 0.95]],
-      [[W * 0.82, H * 0.55], [W * 1.0, H * 0.8 ]],
-    ];
-    diagLines.forEach(([[x1,y1],[x2,y2]], idx) => {
-      segments.push(new BGSegment(x1, y1, x2, y2, delayAcc + idx * 1.2, null, null, 0.06));
-    });
-
-    // ── Animation loop ──
-    let bgStartTime = null;
-
-    function animateBG(ts) {
-      if (!bgStartTime) bgStartTime = ts;
-      const elapsed = (ts - bgStartTime) / 1000;
-      const t       = ts / 1000;
-
-      bgCtx.clearRect(0, 0, bgCanvas.width / DPR, bgCanvas.height / DPR);
-
-      segments.forEach(s => { s.update(elapsed); s.draw(bgCtx); });
-      nodes.forEach(n => n.draw(bgCtx, t));
-
-      requestAnimationFrame(animateBG);
-    }
-
-    requestAnimationFrame(animateBG);
-
-    /* ─── Ripple ──────────────────────────────── */
-    const rippleCanvas = document.getElementById('ripple-canvas');
-    const rippleCtx    = rippleCanvas.getContext('2d');
-
-    function sizeRippleCanvas() {
-      rippleCanvas.width  = window.innerWidth  * DPR;
-      rippleCanvas.height = window.innerHeight * DPR;
-      rippleCanvas.style.width  = window.innerWidth  + 'px';
-      rippleCanvas.style.height = window.innerHeight + 'px';
-    }
-    sizeRippleCanvas();
-    window.addEventListener('resize', sizeRippleCanvas);
-
-    const ripples = [];
-
-    function spawnRipple() {
-      const cx = VW / 2;
-      const cy = VH / 2;
-      const baseR = CIRCLE_D * 0.48;
-      ripples.push({ x: cx, y: cy, r: baseR * 0.72, alpha: 0.55, speed: 6.0 });
-      ripples.push({ x: cx, y: cy, r: baseR * 0.55, alpha: 0.35, speed: 4.8 });
-      ripples.push({ x: cx, y: cy, r: baseR * 0.38, alpha: 0.2,  speed: 3.6 });
-    }
-
-    function tickRipple() {
-      rippleCtx.clearRect(0, 0, rippleCanvas.width, rippleCanvas.height);
-      for (let i = ripples.length - 1; i >= 0; i--) {
-        const rp = ripples[i];
-        rp.r    += rp.speed;
-        rp.alpha -= 0.013;
-        if (rp.alpha <= 0) { ripples.splice(i, 1); continue; }
-        rippleCtx.beginPath();
-        rippleCtx.arc(rp.x * DPR, rp.y * DPR, rp.r * DPR, 0, Math.PI * 2);
-        rippleCtx.strokeStyle = `rgba(212,255,0,${rp.alpha})`;
-        rippleCtx.lineWidth   = 1.8 * DPR;
-        rippleCtx.shadowBlur  = 10;
-        rippleCtx.shadowColor = 'rgba(212,255,0,0.45)';
-        rippleCtx.stroke();
-        rippleCtx.shadowBlur = 0;
-      }
-      requestAnimationFrame(tickRipple);
-    }
-    tickRipple();
-
-    /* ─── Intro ───────────────────────────────── */
-    const introEl   = document.getElementById('intro');
-    const introLogo = document.getElementById('intro-logo');
-
-    const tl = gsap.timeline({ delay: .3 });
-
-    tl.fromTo(introLogo,
-      { opacity: 0, scale: 0.88 },
-      { opacity: 1, scale: 1, duration: 1.8, ease: 'power2.out' }
-    );
-    tl.to({}, { duration: 2.2 });
-    tl.to(introLogo, { opacity: 0, scale: 1.06, duration: 1.0, ease: 'power2.in' });
-    tl.to(introEl, {
-      opacity: 0, duration: .7, ease: 'power1.inOut',
-      onComplete: () => { introEl.remove(); tickWave(); }
-    }, '-=.25');
-
-    tl.from(items, {
-      y: 28, opacity: 0,
-      duration: 2.4, ease: 'power2.out', stagger: 0.18,
-      onStart: () => {
-        document.getElementById('stage').style.visibility = 'visible';
-        items.forEach((el, i) => {
-          const dist = Math.abs(i - cur);
-          gsap.set(el, { scale: scaleFor(dist), filter: `blur(${blurFor(dist)}px)` });
-        });
-      }
-    }, '-=.2');
-
-    // UI chrome fades in on the same wave
-    tl.from(['#logo', '#hint', '#dots', '#counter', '#wave-outer', '#enter-outer'], {
-      opacity: 0,
-      duration: 1.8, ease: 'power2.out', stagger: 0.1,
-    }, '<0.3');
-  </script>
+drawWaveform();
+</script>
 </body>
 </html>
