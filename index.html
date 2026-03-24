@@ -1340,10 +1340,16 @@ var cardEls = CARDS.map(function(card, idx) {
       return el;
     });
     var ssCur = 0;
+    // Preload all videos immediately so they're ready when their slide comes up
+    ssEls.forEach(function(el) {
+      if (el.tagName === "VIDEO") { el.load(); el.play().catch(function(){}); }
+    });
     setInterval(function() {
       ssEls[ssCur].style.opacity = "0";
       ssCur = (ssCur + 1) % ssEls.length;
-      ssEls[ssCur].style.opacity = "0.55";
+      var next = ssEls[ssCur];
+      if (next.tagName === "VIDEO") { next.currentTime = 0; next.play().catch(function(){}); }
+      next.style.opacity = "0.55";
     }, 3200);
   }
 
